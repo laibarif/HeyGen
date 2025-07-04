@@ -108,6 +108,8 @@
         isSpeaking: false
       };
       let avatarResponseTimer = null;
+      let chatHistory = [];
+      let sessionStartTime = null;
 
       // DOM Elements
       const statusElement = document.getElementById("status");
@@ -119,16 +121,20 @@
       // Helper function to update status
       function updateStatus(message) {
         const timestamp = new Date().toLocaleTimeString();
-        statusElement.innerHTML += `<div class="status-message">[${timestamp}] ${message}</div>`;
+        const statusLine = `[${timestamp}] ${message}`;
+        statusElement.innerHTML += `<div class="status-message">${statusLine}</div>`;
         statusElement.scrollTop = statusElement.scrollHeight;
+        chatHistory.push({type: "status", message: statusLine, timestamp: Date.now()});
       }
 
       // Function to display user messages
       function displayUserMessage(message) {
         const timestamp = new Date().toLocaleTimeString();
-        statusElement.innerHTML += `<div class="user-message">[${timestamp}] You: ${message}</div>`;
+        const userLine = `[${timestamp}] You: ${message}`;
+        statusElement.innerHTML += `<div class="user-message">${userLine}</div>`;
         statusElement.scrollTop = statusElement.scrollHeight;
         lastUserMessageTime = Date.now();
+        chatHistory.push({type: "user", message: userLine, timestamp: Date.now()});
       }
 
       // Function to display partial avatar response
@@ -140,14 +146,33 @@
         
         // Find or create the avatar message element
         let avatarMsgElement = document.querySelector('.current-avatar-message');
+        const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
+        const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
+        
         if (!avatarMsgElement) {
-          const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-          statusElement.innerHTML += `<div class="current-avatar-message">[${timestamp}] Avatar: ${formattedText}</div>`;
+          statusElement.innerHTML += `<div class="current-avatar-message">${avatarLine}</div>`;
         } else {
-          avatarMsgElement.textContent = `[${new Date(currentAvatarResponse.startTime).toLocaleTimeString()}] Avatar: ${formattedText}`;
+          avatarMsgElement.textContent = avatarLine;
         }
         
         statusElement.scrollTop = statusElement.scrollHeight;
+        
+        // Update chat history with partial response
+        const existingIndex = chatHistory.findIndex(item => 
+          item.type === "avatar-partial" && 
+          item.startTime === currentAvatarResponse.startTime
+        );
+        
+        if (existingIndex >= 0) {
+          chatHistory[existingIndex].message = avatarLine;
+        } else {
+          chatHistory.push({
+            type: "avatar-partial",
+            message: avatarLine,
+            startTime: currentAvatarResponse.startTime,
+            timestamp: Date.now()
+          });
+        }
       }
 
       // Function to handle avatar speech updates
@@ -179,20 +204,33 @@
         if (currentAvatarResponse.text.trim() && currentAvatarResponse.startTime) {
           // Remove the temporary class if it exists
           const tempElement = document.querySelector('.current-avatar-message');
+          const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
+          const formattedText = currentAvatarResponse.text
+            .replace(/\s*([,.!?])\s*/g, '$1 ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
+          
           if (tempElement) {
             tempElement.classList.remove('current-avatar-message');
             tempElement.classList.add('avatar-message');
+            tempElement.textContent = avatarLine;
           } else {
-            // Only create new message if there wasn't a temporary one
-            const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-            const formattedText = currentAvatarResponse.text
-              .replace(/\s*([,.!?])\s*/g, '$1 ')
-              .replace(/\s+/g, ' ')
-              .trim();
-            
-            statusElement.innerHTML += `<div class="avatar-message">[${timestamp}] Avatar: ${formattedText}</div>`;
-            statusElement.scrollTop = statusElement.scrollHeight;
+            statusElement.innerHTML += `<div class="avatar-message">${avatarLine}</div>`;
           }
+          
+          statusElement.scrollTop = statusElement.scrollHeight;
+          
+          // Remove partial messages from history and add final one
+          chatHistory = chatHistory.filter(item => 
+            !(item.type === "avatar-partial" && item.startTime === currentAvatarResponse.startTime)
+          );
+          chatHistory.push({
+            type: "avatar", 
+            message: avatarLine,
+            timestamp: Date.now()
+          });
         }
         
         // Reset for next response
@@ -201,6 +239,51 @@
           startTime: null,
           isSpeaking: false
         };
+      }
+
+      // Function to save chat to a text file
+      function saveChatToFile() {
+        if (chatHistory.length === 0) {
+          updateStatus("No chat history to save");
+          return;
+        }
+
+        // Format the chat history
+        let chatText = "Chat Session Transcript\n";
+        chatText += "=======================\n\n";
+        
+        // Add session info if available
+        if (sessionInfo) {
+          chatText += `Session ID: ${sessionInfo.session_id}\n`;
+          chatText += `Avatar: ${avatarID.value || 'Not specified'}\n`;
+          chatText += `Voice: ${voiceID.value || 'Not specified'}\n`;
+          chatText += `Started: ${new Date(sessionStartTime).toLocaleString()}\n`;
+          chatText += `Ended: ${new Date().toLocaleString()}\n\n`;
+        }
+
+        // Sort chat history by timestamp
+        chatHistory.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Add all chat messages (excluding partial avatar messages)
+        chatHistory.forEach(item => {
+          if (item.type !== "avatar-partial") {
+            chatText += item.message + "\n";
+          }
+        });
+
+        // Create a blob and download it
+        const blob = new Blob([chatText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const fileName = `chat_session_${sessionInfo ? sessionInfo.session_id : ''}_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        updateStatus("Chat session automatically saved to file");
       }
 
       // Get session token
@@ -274,6 +357,10 @@
 
       // Create new session
       async function createNewSession() {
+        // Clear previous chat history and record start time
+        chatHistory = [];
+        sessionStartTime = Date.now();
+        
         if (!sessionToken) {
           await getSessionToken();
         }
@@ -360,6 +447,7 @@
         // Handle room connection state changes
         room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
           updateStatus(`Room disconnected: ${reason}`);
+          saveChatToFile(); // Save chat if room disconnects unexpectedly
         });
 
         await room.prepareConnection(sessionInfo.url, sessionInfo.access_token);
@@ -421,7 +509,7 @@
           }
         );
 
-        // updateStatus(`Sent text (${taskType}): ${text}`);
+        updateStatus(`Sent text (${taskType}): ${text}`);
       }
 
       // Close session
@@ -465,13 +553,18 @@
         }
 
         mediaElement.srcObject = null;
+        document.querySelector("#startBtn").disabled = false;
+
+        // Save chat before clearing session info
+        saveChatToFile();
+
+        // Clear session info after saving
         sessionInfo = null;
         room = null;
         mediaStream = null;
         sessionToken = null;
-        document.querySelector("#startBtn").disabled = false;
 
-        updateStatus("Session closed");
+        updateStatus("Session closed and chat saved");
       }
 
       // Event Listeners
@@ -506,6 +599,13 @@
             sendText(text, "talk");
             taskInput.value = "";
           }
+        }
+      });
+
+      // Save chat if user tries to leave the page
+      window.addEventListener('beforeunload', (event) => {
+        if (sessionInfo) {
+          saveChatToFile();
         }
       });
     </script>
