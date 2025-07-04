@@ -4,6 +4,7 @@
     <title>HeyGen Streaming API LiveKit (V2)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
@@ -54,6 +55,12 @@
         >
           Close
         </button>
+        <button
+          id="saveTxtBtn"
+          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+        >
+          Save as TXT
+        </button>
       </div>
 
       <div class="flex flex-wrap gap-2.5 mb-5">
@@ -89,524 +96,613 @@
     </div>
 
     <script>
-      // Configuration
+      // Supabase Configuration
+      const SUPABASE_CONFIG = {
+        url: "https://lkyfujgwyxpkgtcmhtlv.supabase.co",
+        key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreWZ1amd3eXhwa2d0Y21odGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MDA3NTcsImV4cCI6MjA2NjQ3Njc1N30.zkS4p_IaodtfrrD1Xs1Jax9fDkrg_VzPhx1eDolCFOk",
+      };
+      async function checkSupabaseConnection() {
+        try {
+          const { data, error } = await supabaseClient
+            .from("conversation_transcripts")
+            .select("*")
+            .limit(1);
+
+          if (error) throw error;
+          updateStatus("Connected to Supabase database");
+          return true;
+        } catch (error) {
+          console.error("Supabase connection error:", error);
+          updateStatus(`Supabase connection failed: ${error.message}`);
+          return false;
+        }
+      }
+
+      // HeyGen API Configuration
       const API_CONFIG = {
         apiKey: "YjAyZmE2YzFlMTkyNDYzNzkxY2E3MmI5Y2RiZWMwMzUtMTc1MTYzMzE2Nw==",
         serverUrl: "https://api.heygen.com",
       };
 
-      // Global variables
-      let sessionInfo = null;
-      let room = null;
-      let mediaStream = null;
-      let webSocket = null;
-      let sessionToken = null;
-      let lastUserMessageTime = 0;
-      let currentAvatarResponse = {
-        text: "",
-        startTime: null,
-        isSpeaking: false
-      };
-      let avatarResponseTimer = null;
-      let chatHistory = [];
-      let sessionStartTime = null;
+      const { createClient } = supabase;
+      const supabaseClient = (window.supabase = createClient(
+        SUPABASE_CONFIG.url,
+        SUPABASE_CONFIG.key
+      ));
 
-      // DOM Elements
-      const statusElement = document.getElementById("status");
-      const mediaElement = document.getElementById("mediaElement");
-      const avatarID = document.getElementById("avatarID");
-      const voiceID = document.getElementById("voiceID");
-      const taskInput = document.getElementById("taskInput");
+      // Initialize Supabase client after DOM loads
+      document.addEventListener("DOMContentLoaded", async () => {
+        // Global variables
+        let sessionInfo = null;
+        let room = null;
+        let mediaStream = null;
+        let webSocket = null;
+        let sessionToken = null;
+        let lastUserMessageTime = 0;
+        let currentAvatarResponse = {
+          text: "",
+          startTime: null,
+          isSpeaking: false,
+        };
+        let avatarResponseTimer = null;
+        let chatHistory = [];
+        let sessionStartTime = null;
 
-      // Helper function to update status
-      function updateStatus(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        const statusLine = `[${timestamp}] ${message}`;
-        statusElement.innerHTML += `<div class="status-message">${statusLine}</div>`;
-        statusElement.scrollTop = statusElement.scrollHeight;
-        chatHistory.push({type: "status", message: statusLine, timestamp: Date.now()});
-      }
+        // DOM Elements
+        const statusElement = document.getElementById("status");
+        const mediaElement = document.getElementById("mediaElement");
+        const avatarID = document.getElementById("avatarID");
+        const voiceID = document.getElementById("voiceID");
+        const taskInput = document.getElementById("taskInput");
 
-      // Function to display user messages
-      function displayUserMessage(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        const userLine = `[${timestamp}] You: ${message}`;
-        statusElement.innerHTML += `<div class="user-message">${userLine}</div>`;
-        statusElement.scrollTop = statusElement.scrollHeight;
-        lastUserMessageTime = Date.now();
-        chatHistory.push({type: "user", message: userLine, timestamp: Date.now()});
-      }
-
-      // Function to display partial avatar response
-      function displayPartialResponse() {
-        const formattedText = currentAvatarResponse.text
-          .replace(/\s*([,.!?])\s*/g, '$1 ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        
-        // Find or create the avatar message element
-        let avatarMsgElement = document.querySelector('.current-avatar-message');
-        const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-        const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
-        
-        if (!avatarMsgElement) {
-          statusElement.innerHTML += `<div class="current-avatar-message">${avatarLine}</div>`;
-        } else {
-          avatarMsgElement.textContent = avatarLine;
-        }
-        
-        statusElement.scrollTop = statusElement.scrollHeight;
-        
-        // Update chat history with partial response
-        const existingIndex = chatHistory.findIndex(item => 
-          item.type === "avatar-partial" && 
-          item.startTime === currentAvatarResponse.startTime
-        );
-        
-        if (existingIndex >= 0) {
-          chatHistory[existingIndex].message = avatarLine;
-        } else {
+        // Helper function to update status
+        function updateStatus(message) {
+          const timestamp = new Date().toLocaleTimeString();
+          const statusLine = `[${timestamp}] ${message}`;
+          statusElement.innerHTML += `<div class="status-message">${statusLine}</div>`;
+          statusElement.scrollTop = statusElement.scrollHeight;
           chatHistory.push({
-            type: "avatar-partial",
-            message: avatarLine,
-            startTime: currentAvatarResponse.startTime,
-            timestamp: Date.now()
+            type: "status",
+            message: statusLine,
+            timestamp: Date.now(),
           });
         }
-      }
 
-      // Function to handle avatar speech updates
-      function handleAvatarSpeech(message) {
-        if (!currentAvatarResponse.startTime) {
-          currentAvatarResponse.startTime = Date.now();
+        // Function to display user messages
+        function displayUserMessage(message) {
+          const timestamp = new Date().toLocaleTimeString();
+          const userLine = `[${timestamp}] You: ${message}`;
+          statusElement.innerHTML += `<div class="user-message">${userLine}</div>`;
+          statusElement.scrollTop = statusElement.scrollHeight;
+          lastUserMessageTime = Date.now();
+          chatHistory.push({
+            type: "user",
+            message: userLine,
+            timestamp: Date.now(),
+          });
         }
-        currentAvatarResponse.text += message;
-        currentAvatarResponse.isSpeaking = true;
-        
-        // Display partial response immediately
-        displayPartialResponse();
-        
-        // Clear any existing timer
-        if (avatarResponseTimer) {
-          clearTimeout(avatarResponseTimer);
+
+        // Function to display partial avatar response
+        function displayPartialResponse() {
+          const formattedText = currentAvatarResponse.text
+            .replace(/\s*([,.!?])\s*/g, "$1 ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          let avatarMsgElement = document.querySelector(
+            ".current-avatar-message"
+          );
+          const timestamp = new Date(
+            currentAvatarResponse.startTime
+          ).toLocaleTimeString();
+          const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
+
+          if (!avatarMsgElement) {
+            statusElement.innerHTML += `<div class="current-avatar-message">${avatarLine}</div>`;
+          } else {
+            avatarMsgElement.textContent = avatarLine;
+          }
+
+          statusElement.scrollTop = statusElement.scrollHeight;
+
+          const existingIndex = chatHistory.findIndex(
+            (item) =>
+              item.type === "avatar-partial" &&
+              item.startTime === currentAvatarResponse.startTime
+          );
+
+          if (existingIndex >= 0) {
+            chatHistory[existingIndex].message = avatarLine;
+          } else {
+            chatHistory.push({
+              type: "avatar-partial",
+              message: avatarLine,
+              startTime: currentAvatarResponse.startTime,
+              timestamp: Date.now(),
+            });
+          }
         }
-        
-        // Set a new timer to ensure the message is displayed even if is_final isn't received
-        avatarResponseTimer = setTimeout(() => {
+
+        // Function to handle avatar speech updates
+        function handleAvatarSpeech(message) {
+          if (!currentAvatarResponse.startTime) {
+            currentAvatarResponse.startTime = Date.now();
+          }
+          currentAvatarResponse.text += message;
+          currentAvatarResponse.isSpeaking = true;
+
+          displayPartialResponse();
+
+          if (avatarResponseTimer) {
+            clearTimeout(avatarResponseTimer);
+          }
+
+          avatarResponseTimer = setTimeout(() => {
+            if (currentAvatarResponse.isSpeaking) {
+              displayAvatarResponse();
+            }
+          }, 2000);
+        }
+
+        // Function to finalize and display avatar response
+        function displayAvatarResponse() {
+          if (
+            currentAvatarResponse.text.trim() &&
+            currentAvatarResponse.startTime
+          ) {
+            const tempElement = document.querySelector(
+              ".current-avatar-message"
+            );
+            const timestamp = new Date(
+              currentAvatarResponse.startTime
+            ).toLocaleTimeString();
+            const formattedText = currentAvatarResponse.text
+              .replace(/\s*([,.!?])\s*/g, "$1 ")
+              .replace(/\s+/g, " ")
+              .trim();
+
+            const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
+
+            if (tempElement) {
+              tempElement.classList.remove("current-avatar-message");
+              tempElement.classList.add("avatar-message");
+              tempElement.textContent = avatarLine;
+            } else {
+              statusElement.innerHTML += `<div class="avatar-message">${avatarLine}</div>`;
+            }
+
+            statusElement.scrollTop = statusElement.scrollHeight;
+
+            chatHistory = chatHistory.filter(
+              (item) =>
+                !(
+                  item.type === "avatar-partial" &&
+                  item.startTime === currentAvatarResponse.startTime
+                )
+            );
+            chatHistory.push({
+              type: "avatar",
+              message: avatarLine,
+              timestamp: Date.now(),
+            });
+          }
+
+          currentAvatarResponse = {
+            text: "",
+            startTime: null,
+            isSpeaking: false,
+          };
+        }
+
+        // Function to save chat to Supabase
+        async function saveChatToDatabase() {
+          if (chatHistory.length === 0) {
+            updateStatus("No chat history to save");
+            return;
+          }
+
+          const { transcript, sessionData } = formatChatForStorage();
+
+          try {
+            const { data, error } = await supabase
+              .from("conversation_transcripts")
+              .insert([sessionData])
+              .select();
+
+            if (error) throw error;
+            updateStatus("Chat saved to database successfully");
+            return true;
+          } catch (error) {
+            console.error("Supabase error:", error);
+            updateStatus(`Error saving to database: ${error.message}`);
+            return false;
+          }
+        }
+
+        // Function to save chat to text file
+        function saveChatToTextFile() {
+          if (chatHistory.length === 0) {
+            updateStatus("No chat history to save");
+            return;
+          }
+
+          const { transcript } = formatChatForStorage();
+
+          try {
+            const blob = new Blob([transcript], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `chat_session_${
+              sessionInfo ? sessionInfo.session_id : ""
+            }_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            updateStatus("Chat saved as text file");
+          } catch (error) {
+            console.error("Error saving text file:", error);
+            updateStatus(`Error saving text file: ${error.message}`);
+          }
+        }
+
+        // Helper function to format chat for storage
+        function formatChatForStorage() {
+          let transcript =
+            "Chat Session Transcript\n=======================\n\n";
+
+          if (sessionInfo) {
+            transcript += `Session ID: ${sessionInfo.session_id}\n`;
+            transcript += `Avatar: ${avatarID.value || "Not specified"}\n`;
+            transcript += `Voice: ${voiceID.value || "Not specified"}\n`;
+            transcript += `Started: ${new Date(
+              sessionStartTime
+            ).toLocaleString()}\n`;
+            transcript += `Ended: ${new Date().toLocaleString()}\n\n`;
+          }
+
+          chatHistory.sort((a, b) => a.timestamp - b.timestamp);
+          chatHistory.forEach((item) => {
+            if (item.type !== "avatar-partial") {
+              transcript += item.message + "\n";
+            }
+          });
+
+          const sessionData = {
+            session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
+            avatar_id: avatarID.value || "not-specified",
+            voice_id: voiceID.value || "not-specified",
+            start_time: new Date(sessionStartTime).toISOString(),
+            end_time: new Date().toISOString(),
+            transcript: transcript,
+            messages: JSON.stringify(
+              chatHistory.filter((item) => item.type !== "avatar-partial")
+            ),
+            created_at: new Date().toISOString(),
+          };
+
+          return { transcript, sessionData };
+        }
+
+        // Get session token
+        async function getSessionToken() {
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.create_token`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Api-Key": API_CONFIG.apiKey,
+              },
+            }
+          );
+
+          const data = await response.json();
+          sessionToken = data.data.token;
+          updateStatus("Session token obtained");
+        }
+
+        // Connect WebSocket
+        async function connectWebSocket(sessionId) {
+          const params = new URLSearchParams({
+            session_id: sessionId,
+            session_token: sessionToken,
+            silence_response: false,
+            opening_text: "Hello, how can I help you?",
+            stt_language: "en",
+          });
+
+          const wsUrl = `wss://${
+            new URL(API_CONFIG.serverUrl).hostname
+          }/v1/ws/streaming.chat?${params}`;
+
+          webSocket = new WebSocket(wsUrl);
+
+          webSocket.addEventListener("message", (event) => {
+            try {
+              const eventData = JSON.parse(event.data);
+
+              if (eventData.type === "avatar_talking_message") {
+                if (eventData.message) {
+                  handleAvatarSpeech(eventData.message);
+                }
+
+                if (eventData.is_final) {
+                  displayAvatarResponse();
+                }
+              } else if (eventData.type === "status_update") {
+                updateStatus(`Status: ${eventData.message}`);
+              }
+            } catch (e) {
+              console.error("Error parsing WebSocket message:", e);
+            }
+          });
+
+          webSocket.addEventListener("open", () => {
+            updateStatus("WebSocket connection established");
+          });
+
+          webSocket.addEventListener("close", () => {
+            updateStatus("WebSocket connection closed");
+          });
+
+          webSocket.addEventListener("error", (error) => {
+            updateStatus(`WebSocket error: ${error.message}`);
+          });
+        }
+
+        // Create new session
+        async function createNewSession() {
+          chatHistory = [];
+          sessionStartTime = Date.now();
+
+          if (!sessionToken) {
+            await getSessionToken();
+          }
+
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.new`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({
+                quality: "high",
+                avatar_name: avatarID.value,
+                voice: {
+                  voice_id: voiceID.value,
+                  rate: 1.0,
+                },
+                version: "v2",
+                video_encoding: "H264",
+              }),
+            }
+          );
+
+          const data = await response.json();
+          if (!response.ok) {
+            console.error("API error:", data);
+            updateStatus(`Error: ${data.message || "Invalid request"}`);
+            return;
+          }
+          sessionInfo = data.data;
+
+          room = new LivekitClient.Room({
+            adaptiveStream: true,
+            dynacast: true,
+            videoCaptureDefaults: {
+              resolution: LivekitClient.VideoPresets.h720.resolution,
+            },
+          });
+
+          room.on(LivekitClient.RoomEvent.DataReceived, (message) => {
+            try {
+              const data = new TextDecoder().decode(message);
+              const parsedData = JSON.parse(data);
+
+              if (parsedData.type === "avatar_talking_message") {
+                if (parsedData.message) {
+                  handleAvatarSpeech(parsedData.message);
+                }
+                if (parsedData.is_final) {
+                  displayAvatarResponse();
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing room message:", e);
+            }
+          });
+
+          mediaStream = new MediaStream();
+          room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+            if (track.kind === "video" || track.kind === "audio") {
+              mediaStream.addTrack(track.mediaStreamTrack);
+              if (
+                mediaStream.getVideoTracks().length > 0 &&
+                mediaStream.getAudioTracks().length > 0
+              ) {
+                mediaElement.srcObject = mediaStream;
+                updateStatus("Media stream ready");
+              }
+            }
+          });
+
+          room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+            const mediaTrack = track.mediaStreamTrack;
+            if (mediaTrack) {
+              mediaStream.removeTrack(mediaTrack);
+            }
+          });
+
+          room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+            updateStatus(`Room disconnected: ${reason}`);
+            saveChatToDatabase();
+            saveChatToTextFile();
+          });
+
+          await room.prepareConnection(
+            sessionInfo.url,
+            sessionInfo.access_token
+          );
+          updateStatus("Connection prepared");
+
+          await connectWebSocket(sessionInfo.session_id);
+          updateStatus("Session created successfully");
+        }
+
+        // Start streaming session
+        async function startStreamingSession() {
+          const startResponse = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.start`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({
+                session_id: sessionInfo.session_id,
+              }),
+            }
+          );
+
+          await room.connect(sessionInfo.url, sessionInfo.access_token);
+          updateStatus("Connected to room");
+
+          document.querySelector("#startBtn").disabled = true;
+          updateStatus("Streaming started successfully");
+        }
+
+        // Send text to avatar
+        async function sendText(text, taskType = "talk") {
+          if (!sessionInfo) {
+            updateStatus("No active session");
+            return;
+          }
+
+          displayUserMessage(text);
+
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.task`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({
+                session_id: sessionInfo.session_id,
+                text: text,
+                task_type: taskType,
+              }),
+            }
+          );
+
+        }
+
+        // Close session
+        async function closeSession() {
+          if (!sessionInfo) {
+            updateStatus("No active session");
+            return;
+          }
+
           if (currentAvatarResponse.isSpeaking) {
             displayAvatarResponse();
           }
-        }, 2000); // 2 seconds after last message part
-      }
 
-      // Function to finalize and display avatar response
-      function displayAvatarResponse() {
-        if (currentAvatarResponse.text.trim() && currentAvatarResponse.startTime) {
-          // Remove the temporary class if it exists
-          const tempElement = document.querySelector('.current-avatar-message');
-          const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-          const formattedText = currentAvatarResponse.text
-            .replace(/\s*([,.!?])\s*/g, '$1 ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
-          
-          if (tempElement) {
-            tempElement.classList.remove('current-avatar-message');
-            tempElement.classList.add('avatar-message');
-            tempElement.textContent = avatarLine;
-          } else {
-            statusElement.innerHTML += `<div class="avatar-message">${avatarLine}</div>`;
+          if (avatarResponseTimer) {
+            clearTimeout(avatarResponseTimer);
           }
-          
-          statusElement.scrollTop = statusElement.scrollHeight;
-          
-          // Remove partial messages from history and add final one
-          chatHistory = chatHistory.filter(item => 
-            !(item.type === "avatar-partial" && item.startTime === currentAvatarResponse.startTime)
-          );
-          chatHistory.push({
-            type: "avatar", 
-            message: avatarLine,
-            timestamp: Date.now()
-          });
-        }
-        
-        // Reset for next response
-        currentAvatarResponse = {
-          text: "",
-          startTime: null,
-          isSpeaking: false
-        };
-      }
 
-      // Function to save chat to a text file
-      function saveChatToFile() {
-        if (chatHistory.length === 0) {
-          updateStatus("No chat history to save");
-          return;
-        }
-
-        // Format the chat history
-        let chatText = "Chat Session Transcript\n";
-        chatText += "=======================\n\n";
-        
-        // Add session info if available
-        if (sessionInfo) {
-          chatText += `Session ID: ${sessionInfo.session_id}\n`;
-          chatText += `Avatar: ${avatarID.value || 'Not specified'}\n`;
-          chatText += `Voice: ${voiceID.value || 'Not specified'}\n`;
-          chatText += `Started: ${new Date(sessionStartTime).toLocaleString()}\n`;
-          chatText += `Ended: ${new Date().toLocaleString()}\n\n`;
-        }
-
-        // Sort chat history by timestamp
-        chatHistory.sort((a, b) => a.timestamp - b.timestamp);
-
-        // Add all chat messages (excluding partial avatar messages)
-        chatHistory.forEach(item => {
-          if (item.type !== "avatar-partial") {
-            chatText += item.message + "\n";
-          }
-        });
-
-        // Create a blob and download it
-        const blob = new Blob([chatText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const fileName = `chat_session_${sessionInfo ? sessionInfo.session_id : ''}_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        updateStatus("Chat session automatically saved to file");
-      }
-
-      // Get session token
-      async function getSessionToken() {
-        const response = await fetch(
-          `${API_CONFIG.serverUrl}/v1/streaming.create_token`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Api-Key": API_CONFIG.apiKey,
-            },
-          }
-        );
-
-        const data = await response.json();
-        sessionToken = data.data.token;
-        updateStatus("Session token obtained");
-      }
-
-      // Connect WebSocket
-      async function connectWebSocket(sessionId) {
-        const params = new URLSearchParams({
-          session_id: sessionId,
-          session_token: sessionToken,
-          silence_response: false,
-          opening_text: "Hello, how can I help you?",
-          stt_language: "en",
-        });
-
-        const wsUrl = `wss://${
-          new URL(API_CONFIG.serverUrl).hostname
-        }/v1/ws/streaming.chat?${params}`;
-
-        webSocket = new WebSocket(wsUrl);
-
-        webSocket.addEventListener("message", (event) => {
-          try {
-            const eventData = JSON.parse(event.data);
-            
-            if (eventData.type === "avatar_talking_message") {
-              if (eventData.message) {
-                handleAvatarSpeech(eventData.message);
-              }
-              
-              // When avatar stops speaking
-              if (eventData.is_final) {
-                displayAvatarResponse();
-              }
-            }
-            else if (eventData.type === "status_update") {
-              updateStatus(`Status: ${eventData.message}`);
-            }
-          } catch (e) {
-            console.error("Error parsing WebSocket message:", e);
-          }
-        });
-
-        webSocket.addEventListener("open", () => {
-          updateStatus("WebSocket connection established");
-        });
-
-        webSocket.addEventListener("close", () => {
-          updateStatus("WebSocket connection closed");
-        });
-
-        webSocket.addEventListener("error", (error) => {
-          updateStatus(`WebSocket error: ${error.message}`);
-        });
-      }
-
-      // Create new session
-      async function createNewSession() {
-        // Clear previous chat history and record start time
-        chatHistory = [];
-        sessionStartTime = Date.now();
-        
-        if (!sessionToken) {
-          await getSessionToken();
-        }
-
-        const response = await fetch(
-          `${API_CONFIG.serverUrl}/v1/streaming.new`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({
-              quality: "high",
-              avatar_name: avatarID.value,
-              voice: {
-                voice_id: voiceID.value,
-                rate: 1.0,
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.stop`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
               },
-              version: "v2",
-              video_encoding: "H264",
-            }),
-          }
-        );
-
-        const data = await response.json();
-        if (!response.ok) {
-          console.error("API error:", data);
-          updateStatus(`Error: ${data.message || "Invalid request"}`);
-          return;
-        }
-        sessionInfo = data.data;
-
-        // Create LiveKit Room
-        room = new LivekitClient.Room({
-          adaptiveStream: true,
-          dynacast: true,
-          videoCaptureDefaults: {
-            resolution: LivekitClient.VideoPresets.h720.resolution,
-          },
-        });
-
-        room.on(LivekitClient.RoomEvent.DataReceived, (message) => {
-          try {
-            const data = new TextDecoder().decode(message);
-            const parsedData = JSON.parse(data);
-            
-            if (parsedData.type === "avatar_talking_message") {
-              if (parsedData.message) {
-                handleAvatarSpeech(parsedData.message);
-              }
-              if (parsedData.is_final) {
-                displayAvatarResponse();
-              }
+              body: JSON.stringify({
+                session_id: sessionInfo.session_id,
+              }),
             }
-          } catch (e) {
-            console.error("Error parsing room message:", e);
+          );
+
+          if (webSocket) {
+            webSocket.close();
           }
-        });
-
-        // Handle media streams
-        mediaStream = new MediaStream();
-        room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
-          if (track.kind === "video" || track.kind === "audio") {
-            mediaStream.addTrack(track.mediaStreamTrack);
-            if (
-              mediaStream.getVideoTracks().length > 0 &&
-              mediaStream.getAudioTracks().length > 0
-            ) {
-              mediaElement.srcObject = mediaStream;
-              updateStatus("Media stream ready");
-            }
+          if (room) {
+            room.disconnect();
           }
-        });
 
-        // Handle media stream removal
-        room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
-          const mediaTrack = track.mediaStreamTrack;
-          if (mediaTrack) {
-            mediaStream.removeTrack(mediaTrack);
-          }
-        });
+          mediaElement.srcObject = null;
+          document.querySelector("#startBtn").disabled = false;
 
-        // Handle room connection state changes
-        room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
-          updateStatus(`Room disconnected: ${reason}`);
-          saveChatToFile(); // Save chat if room disconnects unexpectedly
-        });
+          // Save to both destinations
+          await saveChatToDatabase();
+          saveChatToTextFile();
 
-        await room.prepareConnection(sessionInfo.url, sessionInfo.access_token);
-        updateStatus("Connection prepared");
+          sessionInfo = null;
+          room = null;
+          mediaStream = null;
+          sessionToken = null;
 
-        // Connect WebSocket after room preparation
-        await connectWebSocket(sessionInfo.session_id);
-
-        updateStatus("Session created successfully");
-      }
-
-      // Start streaming session
-      async function startStreamingSession() {
-        const startResponse = await fetch(
-          `${API_CONFIG.serverUrl}/v1/streaming.start`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({
-              session_id: sessionInfo.session_id,
-            }),
-          }
-        );
-
-        // Connect to LiveKit room
-        await room.connect(sessionInfo.url, sessionInfo.access_token);
-        updateStatus("Connected to room");
-
-        document.querySelector("#startBtn").disabled = true;
-        updateStatus("Streaming started successfully");
-      }
-
-      // Send text to avatar
-      async function sendText(text, taskType = "talk") {
-        if (!sessionInfo) {
-          updateStatus("No active session");
-          return;
+          updateStatus("Session closed and chat saved");
         }
 
-        // Display user message immediately
-        displayUserMessage(text);
+        // Event Listeners
+        document
+          .querySelector("#startBtn")
+          .addEventListener("click", async () => {
+            await createNewSession();
+            await startStreamingSession();
+          });
 
-        const response = await fetch(
-          `${API_CONFIG.serverUrl}/v1/streaming.task`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({
-              session_id: sessionInfo.session_id,
-              text: text,
-              task_type: taskType,
-            }),
-          }
-        );
+        document
+          .querySelector("#closeBtn")
+          .addEventListener("click", closeSession);
 
-        updateStatus(`Sent text (${taskType}): ${text}`);
-      }
+        document
+          .querySelector("#saveTxtBtn")
+          .addEventListener("click", saveChatToTextFile);
 
-      // Close session
-      async function closeSession() {
-        if (!sessionInfo) {
-          updateStatus("No active session");
-          return;
-        }
-
-        // Finalize any pending avatar response
-        if (currentAvatarResponse.isSpeaking) {
-          displayAvatarResponse();
-        }
-
-        // Clear any pending timer
-        if (avatarResponseTimer) {
-          clearTimeout(avatarResponseTimer);
-        }
-
-        const response = await fetch(
-          `${API_CONFIG.serverUrl}/v1/streaming.stop`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({
-              session_id: sessionInfo.session_id,
-            }),
-          }
-        );
-
-        // Close WebSocket
-        if (webSocket) {
-          webSocket.close();
-        }
-        // Disconnect from LiveKit room
-        if (room) {
-          room.disconnect();
-        }
-
-        mediaElement.srcObject = null;
-        document.querySelector("#startBtn").disabled = false;
-
-        // Save chat before clearing session info
-        saveChatToFile();
-
-        // Clear session info after saving
-        sessionInfo = null;
-        room = null;
-        mediaStream = null;
-        sessionToken = null;
-
-        updateStatus("Session closed and chat saved");
-      }
-
-      // Event Listeners
-      document.querySelector("#startBtn").addEventListener("click", async () => {
-        await createNewSession();
-        await startStreamingSession();
-      });
-      
-      document.querySelector("#closeBtn").addEventListener("click", closeSession);
-      
-      document.querySelector("#talkBtn").addEventListener("click", () => {
-        const text = taskInput.value.trim();
-        if (text) {
-          sendText(text, "talk");
-          taskInput.value = "";
-        }
-      });
-      
-      document.querySelector("#repeatBtn").addEventListener("click", () => {
-        const text = taskInput.value.trim();
-        if (text) {
-          sendText(text, "repeat");
-          taskInput.value = "";
-        }
-      });
-
-      // Handle Enter key in task input
-      taskInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
+        document.querySelector("#talkBtn").addEventListener("click", () => {
           const text = taskInput.value.trim();
           if (text) {
             sendText(text, "talk");
             taskInput.value = "";
           }
-        }
-      });
+        });
 
-      // Save chat if user tries to leave the page
-      window.addEventListener('beforeunload', (event) => {
-        if (sessionInfo) {
-          saveChatToFile();
-        }
+        document.querySelector("#repeatBtn").addEventListener("click", () => {
+          const text = taskInput.value.trim();
+          if (text) {
+            sendText(text, "repeat");
+            taskInput.value = "";
+          }
+        });
+
+        taskInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            const text = taskInput.value.trim();
+            if (text) {
+              sendText(text, "talk");
+              taskInput.value = "";
+            }
+          }
+        });
+
+        window.addEventListener("beforeunload", async (event) => {
+          if (sessionInfo) {
+            await saveChatToDatabase();
+            saveChatToTextFile();
+          }
+        });
       });
     </script>
   </body>
