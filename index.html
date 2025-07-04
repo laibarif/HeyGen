@@ -220,7 +220,6 @@
             }
           } else {
             // No active session
-            startBtn.disabled = false;
             closeBtn.disabled = true;
             taskInput.disabled = true;
             talkBtn.disabled = true;
@@ -228,6 +227,9 @@
             inputMode = null;
             talkBtn.classList.remove('active-mode');
             voiceInputBtn.classList.remove('active-mode');
+            
+            // Start button state depends on email validation
+            validateEmail();
           }
         }
 
