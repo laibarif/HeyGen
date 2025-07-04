@@ -32,6 +32,9 @@
         50% { opacity: 0.5; }
         100% { opacity: 1; }
       }
+      .active-mode {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+      }
     </style>
   </head>
 
@@ -45,21 +48,16 @@
           value="Wayne_20240711"
           class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md"
         />
-        <input
-          id="voiceID"
-          type="text"
-          placeholder="Voice ID"
-          class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md"
-        />
         <button
           id="startBtn"
-          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
         >
           Start
         </button>
         <button
           id="closeBtn"
-          class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+          class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         >
           Close
         </button>
@@ -70,17 +68,20 @@
           id="taskInput"
           type="text"
           placeholder="ENTER YOUR MSG"
-          class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md"
+          class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         />
         <button
           id="talkBtn"
-          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         >
           Talk (LLM)
         </button>
         <button
           id="voiceInputBtn"
-          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
@@ -147,15 +148,55 @@
         let isListening = false;
         let finalTranscript = '';
         let interimTranscript = '';
+        let inputMode = null; // 'text' or 'voice'
 
         // DOM Elements
         const statusElement = document.getElementById("status");
         const mediaElement = document.getElementById("mediaElement");
         const avatarID = document.getElementById("avatarID");
-        const voiceID = document.getElementById("voiceID");
         const taskInput = document.getElementById("taskInput");
+        const talkBtn = document.getElementById("talkBtn");
         const voiceInputBtn = document.getElementById("voiceInputBtn");
         const voiceStatus = document.getElementById("voiceStatus");
+        const startBtn = document.getElementById("startBtn");
+        const closeBtn = document.getElementById("closeBtn");
+
+        // Enable/disable controls based on session state
+        function updateControls() {
+          if (sessionInfo) {
+            // Session is active
+            startBtn.disabled = true;
+            closeBtn.disabled = false;
+            
+            // Enable both input methods by default
+            taskInput.disabled = false;
+            talkBtn.disabled = false;
+            voiceInputBtn.disabled = false;
+            
+            // Highlight active mode
+            if (inputMode === 'text') {
+              talkBtn.classList.add('active-mode');
+              voiceInputBtn.classList.remove('active-mode');
+            } else if (inputMode === 'voice') {
+              voiceInputBtn.classList.add('active-mode');
+              talkBtn.classList.remove('active-mode');
+            } else {
+              // No mode selected yet
+              talkBtn.classList.remove('active-mode');
+              voiceInputBtn.classList.remove('active-mode');
+            }
+          } else {
+            // No active session
+            startBtn.disabled = false;
+            closeBtn.disabled = true;
+            taskInput.disabled = true;
+            talkBtn.disabled = true;
+            voiceInputBtn.disabled = true;
+            inputMode = null;
+            talkBtn.classList.remove('active-mode');
+            voiceInputBtn.classList.remove('active-mode');
+          }
+        }
 
         // Initialize speech recognition
         function initSpeechRecognition() {
@@ -229,6 +270,8 @@
           
           if (recognition) {
             try {
+              inputMode = 'voice';
+              updateControls();
               recognition.start();
             } catch (error) {
               updateStatus(`Error starting voice recognition: ${error}`);
@@ -244,6 +287,8 @@
             voiceInputBtn.classList.remove('recording');
             voiceStatus.classList.add('hidden');
             updateStatus("Voice recognition stopped");
+            inputMode = null;
+            updateControls();
           }
         }
         
@@ -252,6 +297,9 @@
           if (isListening) {
             stopVoiceRecognition();
           } else {
+            // Set voice mode and update controls
+            inputMode = 'voice';
+            updateControls();
             startVoiceRecognition();
           }
         }
@@ -409,7 +457,6 @@
                 {
                   session_id: sessionData.session_id,
                   avatar_id: sessionData.avatar_id,
-                  voice_id: sessionData.voice_id,
                   start_time: sessionData.start_time,
                   end_time: sessionData.end_time,
                   full_transcript: transcript,
@@ -442,7 +489,6 @@
           if (sessionInfo) {
             fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
             fullTranscript += `Avatar: ${avatarID.value || "Not specified"}\n`;
-            fullTranscript += `Voice: ${voiceID.value || "Not specified"}\n`;
             fullTranscript += `Started: ${new Date(
               sessionStartTime
             ).toLocaleString()}\n`;
@@ -500,7 +546,6 @@
           const sessionData = {
             session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
             avatar_id: avatarID.value || "not-specified",
-            voice_id: voiceID.value || "not-specified",
             start_time: new Date(sessionStartTime).toISOString(),
             end_time: new Date().toISOString(),
             transcript: cleanTranscript.trim(),
@@ -597,10 +642,6 @@
               body: JSON.stringify({
                 quality: "high",
                 avatar_name: avatarID.value,
-                voice: {
-                  voice_id: voiceID.value,
-                  rate: 1.0,
-                },
                 version: "v2",
                 video_encoding: "H264",
               }),
@@ -674,6 +715,9 @@
 
           await connectWebSocket(sessionInfo.session_id);
           updateStatus("Session created successfully");
+          
+          // Enable input controls after session is ready
+          updateControls();
         }
 
         // Start streaming session
@@ -778,8 +822,10 @@
             room = null;
             mediaStream = null;
             sessionToken = null;
+            inputMode = null;
 
             updateStatus("Session closed and chat saved");
+            updateControls();
           } catch (error) {
             console.error("Error closing session:", error);
             updateStatus(`Error closing session: ${error.message}`);
@@ -797,6 +843,8 @@
         document.querySelector("#talkBtn").addEventListener("click", () => {
           const text = taskInput.value.trim();
           if (text) {
+            inputMode = 'text';
+            updateControls();
             sendText(text, "talk");
             taskInput.value = "";
           }
@@ -808,6 +856,8 @@
           if (e.key === "Enter") {
             const text = taskInput.value.trim();
             if (text) {
+              inputMode = 'text';
+              updateControls();
               sendText(text, "talk");
               taskInput.value = "";
             }
@@ -825,6 +875,9 @@
             stopVoiceRecognition();
           }
         });
+
+        // Initialize controls
+        updateControls();
       });
     </script>
   </body>
