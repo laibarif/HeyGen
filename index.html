@@ -55,19 +55,13 @@
         >
           Close
         </button>
-        <button
-          id="saveTxtBtn"
-          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          Save as TXT
-        </button>
       </div>
 
       <div class="flex flex-wrap gap-2.5 mb-5">
         <input
           id="taskInput"
           type="text"
-          placeholder="Enter text for avatar to speak"
+          placeholder="ENTER YOUR MSG"
           class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md"
         />
         <button
@@ -75,12 +69,6 @@
           class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
         >
           Talk (LLM)
-        </button>
-        <button
-          id="repeatBtn"
-          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          Repeat
         </button>
       </div>
 
@@ -131,6 +119,7 @@
         let avatarResponseTimer = null;
         let chatHistory = [];
         let sessionStartTime = null;
+        let isSaving = false; // Flag to prevent duplicate saves
 
         // DOM Elements
         const statusElement = document.getElementById("status");
@@ -280,10 +269,8 @@
 
         // Function to save chat to Supabase
         async function saveChatToDatabase() {
-          if (chatHistory.length === 0) {
-            updateStatus("No chat history to save");
-            return;
-          }
+          if (isSaving || chatHistory.length === 0) return;
+          isSaving = true;
 
           const { transcript, sessionData } = formatChatForStorage();
 
@@ -297,7 +284,7 @@
                   voice_id: sessionData.voice_id,
                   start_time: sessionData.start_time,
                   end_time: sessionData.end_time,
-                  full_transcript: sessionData.transcript,
+                  full_transcript: transcript,
                   messages: sessionData.messages
                 }
               ]);
@@ -309,6 +296,8 @@
             console.error("Supabase error:", error);
             updateStatus(`Error saving to database: ${error.message}`);
             return false;
+          } finally {
+            isSaving = false;
           }
         }
 
@@ -319,10 +308,28 @@
             return;
           }
 
-          const { transcript } = formatChatForStorage();
+          let fullTranscript =
+            "Chat Session Transcript\n=======================\n\n";
+
+          if (sessionInfo) {
+            fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
+            fullTranscript += `Avatar: ${avatarID.value || "Not specified"}\n`;
+            fullTranscript += `Voice: ${voiceID.value || "Not specified"}\n`;
+            fullTranscript += `Started: ${new Date(
+              sessionStartTime
+            ).toLocaleString()}\n`;
+            fullTranscript += `Ended: ${new Date().toLocaleString()}\n\n`;
+          }
+
+          chatHistory.sort((a, b) => a.timestamp - b.timestamp);
+          chatHistory.forEach((item) => {
+            if (item.type !== "avatar-partial") {
+              fullTranscript += item.message + "\n";
+            }
+          });
 
           try {
-            const blob = new Blob([transcript], { type: "text/plain" });
+            const blob = new Blob([fullTranscript], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -342,39 +349,39 @@
         }
 
         // Helper function to format chat for storage
-        function formatChatForStorage() {
-          let transcript =
-            "Chat Session Transcript\n=======================\n\n";
+        // Helper function to format chat for storage
+function formatChatForStorage() {
+  let cleanTranscript = "";
+  
+  // Filter and format messages
+  const filteredMessages = chatHistory.filter(item => 
+    item.type === "user" || item.type === "avatar"
+  );
+  
+  filteredMessages.forEach(item => {
+    // Extract just the message content without timestamp
+    const messageParts = item.message.split('] '); // Split at timestamp
+    const messageContent = messageParts.slice(1).join('] '); // Get everything after timestamp
+    
+    if (item.type === "user") {
+      cleanTranscript += `${messageContent}\n`;
+    } else if (item.type === "avatar") {
+      cleanTranscript += `${messageContent}\n`;
+    }
+  });
 
-          if (sessionInfo) {
-            transcript += `Session ID: ${sessionInfo.session_id}\n`;
-            transcript += `Avatar: ${avatarID.value || "Not specified"}\n`;
-            transcript += `Voice: ${voiceID.value || "Not specified"}\n`;
-            transcript += `Started: ${new Date(
-              sessionStartTime
-            ).toLocaleString()}\n`;
-            transcript += `Ended: ${new Date().toLocaleString()}\n\n`;
-          }
+  const sessionData = {
+    session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
+    avatar_id: avatarID.value || "not-specified",
+    voice_id: voiceID.value || "not-specified",
+    start_time: new Date(sessionStartTime).toISOString(),
+    end_time: new Date().toISOString(),
+    transcript: cleanTranscript.trim(), // Trim any extra whitespace
+    messages: chatHistory.filter((item) => item.type !== "avatar-partial")
+  };
 
-          chatHistory.sort((a, b) => a.timestamp - b.timestamp);
-          chatHistory.forEach((item) => {
-            if (item.type !== "avatar-partial") {
-              transcript += item.message + "\n";
-            }
-          });
-
-          const sessionData = {
-            session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
-            avatar_id: avatarID.value || "not-specified",
-            voice_id: voiceID.value || "not-specified",
-            start_time: new Date(sessionStartTime).toISOString(),
-            end_time: new Date().toISOString(),
-            transcript: transcript,
-            messages: chatHistory.filter((item) => item.type !== "avatar-partial")
-          };
-
-          return { transcript, sessionData };
-        }
+  return { transcript: cleanTranscript.trim(), sessionData };
+}
 
         // Get session token
         async function getSessionToken() {
@@ -530,8 +537,6 @@
 
           room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
             updateStatus(`Room disconnected: ${reason}`);
-            saveChatToDatabase();
-            saveChatToTextFile();
           });
 
           await room.prepareConnection(
@@ -608,40 +613,45 @@
             clearTimeout(avatarResponseTimer);
           }
 
-          const response = await fetch(
-            `${API_CONFIG.serverUrl}/v1/streaming.stop`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${sessionToken}`,
-              },
-              body: JSON.stringify({
-                session_id: sessionInfo.session_id,
-              }),
+          try {
+            const response = await fetch(
+              `${API_CONFIG.serverUrl}/v1/streaming.stop`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${sessionToken}`,
+                },
+                body: JSON.stringify({
+                  session_id: sessionInfo.session_id,
+                }),
+              }
+            );
+
+            if (webSocket) {
+              webSocket.close();
             }
-          );
+            if (room) {
+              room.disconnect();
+            }
 
-          if (webSocket) {
-            webSocket.close();
+            mediaElement.srcObject = null;
+            document.querySelector("#startBtn").disabled = false;
+
+            // Save to database and text file
+            await saveChatToDatabase();
+            saveChatToTextFile();
+
+            sessionInfo = null;
+            room = null;
+            mediaStream = null;
+            sessionToken = null;
+
+            updateStatus("Session closed and chat saved");
+          } catch (error) {
+            console.error("Error closing session:", error);
+            updateStatus(`Error closing session: ${error.message}`);
           }
-          if (room) {
-            room.disconnect();
-          }
-
-          mediaElement.srcObject = null;
-          document.querySelector("#startBtn").disabled = false;
-
-          // Save to both destinations
-          await saveChatToDatabase();
-          saveChatToTextFile();
-
-          sessionInfo = null;
-          room = null;
-          mediaStream = null;
-          sessionToken = null;
-
-          updateStatus("Session closed and chat saved");
         }
 
         // Event Listeners
@@ -656,22 +666,10 @@
           .querySelector("#closeBtn")
           .addEventListener("click", closeSession);
 
-        document
-          .querySelector("#saveTxtBtn")
-          .addEventListener("click", saveChatToTextFile);
-
         document.querySelector("#talkBtn").addEventListener("click", () => {
           const text = taskInput.value.trim();
           if (text) {
             sendText(text, "talk");
-            taskInput.value = "";
-          }
-        });
-
-        document.querySelector("#repeatBtn").addEventListener("click", () => {
-          const text = taskInput.value.trim();
-          if (text) {
-            sendText(text, "repeat");
             taskInput.value = "";
           }
         });
