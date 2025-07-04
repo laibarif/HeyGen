@@ -40,17 +40,30 @@
 
   <body class="bg-gray-100 p-5 font-sans">
     <div class="max-w-3xl mx-auto bg-white p-5 rounded-lg shadow-md">
+      <!-- Email Input Field -->
+      <div class="mb-5">
+        <input
+          id="userEmail"
+          type="email"
+          placeholder="Enter your email"
+          class="w-full p-2 border border-gray-300 rounded-md"
+          required
+        />
+      </div>
+
       <div class="flex flex-wrap gap-2.5 mb-5">
         <input
           id="avatarID"
           type="text"
           placeholder="Avatar ID"
           value="Wayne_20240711"
-          class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md"
+          class="flex-1 min-w-[200px] p-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         />
         <button
           id="startBtn"
-          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+          class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled
         >
           Start
         </button>
@@ -142,6 +155,7 @@
         let chatHistory = [];
         let sessionStartTime = null;
         let isSaving = false;
+        let userEmail = null;
         
         // Voice recognition variables
         let recognition = null;
@@ -153,6 +167,7 @@
         // DOM Elements
         const statusElement = document.getElementById("status");
         const mediaElement = document.getElementById("mediaElement");
+        const userEmailInput = document.getElementById("userEmail");
         const avatarID = document.getElementById("avatarID");
         const taskInput = document.getElementById("taskInput");
         const talkBtn = document.getElementById("talkBtn");
@@ -160,6 +175,24 @@
         const voiceStatus = document.getElementById("voiceStatus");
         const startBtn = document.getElementById("startBtn");
         const closeBtn = document.getElementById("closeBtn");
+
+        // Validate email and enable controls
+        function validateEmail() {
+          const email = userEmailInput.value.trim();
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          
+          if (emailRegex.test(email)) {
+            userEmail = email;
+            avatarID.disabled = false;
+            startBtn.disabled = false;
+            return true;
+          } else {
+            userEmail = null;
+            avatarID.disabled = true;
+            startBtn.disabled = true;
+            return false;
+          }
+        }
 
         // Enable/disable controls based on session state
         function updateControls() {
@@ -457,6 +490,7 @@
                 {
                   session_id: sessionData.session_id,
                   avatar_id: sessionData.avatar_id,
+                  user_email: userEmail,
                   start_time: sessionData.start_time,
                   end_time: sessionData.end_time,
                   full_transcript: transcript,
@@ -488,6 +522,7 @@
 
           if (sessionInfo) {
             fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
+            fullTranscript += `User Email: ${userEmail || "Not provided"}\n`;
             fullTranscript += `Avatar: ${avatarID.value || "Not specified"}\n`;
             fullTranscript += `Started: ${new Date(
               sessionStartTime
@@ -624,6 +659,11 @@
 
         // Create new session
         async function createNewSession() {
+          if (!userEmail) {
+            updateStatus("Please enter a valid email first");
+            return;
+          }
+
           chatHistory = [];
           sessionStartTime = Date.now();
 
@@ -826,6 +866,7 @@
 
             updateStatus("Session closed and chat saved");
             updateControls();
+            
           } catch (error) {
             console.error("Error closing session:", error);
             updateStatus(`Error closing session: ${error.message}`);
@@ -833,7 +874,13 @@
         }
 
         // Event Listeners
+        userEmailInput.addEventListener("input", validateEmail);
+        
         document.querySelector("#startBtn").addEventListener("click", async () => {
+          if (!validateEmail()) {
+            updateStatus("Please enter a valid email address");
+            return;
+          }
           await createNewSession();
           await startStreamingSession();
         });
@@ -877,6 +924,7 @@
         });
 
         // Initialize controls
+        validateEmail();
         updateControls();
       });
     </script>
