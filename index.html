@@ -101,23 +101,7 @@
         url: "https://lkyfujgwyxpkgtcmhtlv.supabase.co",
         key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreWZ1amd3eXhwa2d0Y21odGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MDA3NTcsImV4cCI6MjA2NjQ3Njc1N30.zkS4p_IaodtfrrD1Xs1Jax9fDkrg_VzPhx1eDolCFOk",
       };
-      async function checkSupabaseConnection() {
-        try {
-          const { data, error } = await supabaseClient
-            .from("conversation_transcripts")
-            .select("*")
-            .limit(1);
-
-          if (error) throw error;
-          updateStatus("Connected to Supabase database");
-          return true;
-        } catch (error) {
-          console.error("Supabase connection error:", error);
-          updateStatus(`Supabase connection failed: ${error.message}`);
-          return false;
-        }
-      }
-
+      
       // HeyGen API Configuration
       const API_CONFIG = {
         apiKey: "YjAyZmE2YzFlMTkyNDYzNzkxY2E3MmI5Y2RiZWMwMzUtMTc1MTYzMzE2Nw==",
@@ -304,10 +288,19 @@
           const { transcript, sessionData } = formatChatForStorage();
 
           try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
               .from("conversation_transcripts")
-              .insert([sessionData])
-              .select();
+              .insert([
+                {
+                  session_id: sessionData.session_id,
+                  avatar_id: sessionData.avatar_id,
+                  voice_id: sessionData.voice_id,
+                  start_time: sessionData.start_time,
+                  end_time: sessionData.end_time,
+                  full_transcript: sessionData.transcript,
+                  messages: sessionData.messages
+                }
+              ]);
 
             if (error) throw error;
             updateStatus("Chat saved to database successfully");
@@ -377,10 +370,7 @@
             start_time: new Date(sessionStartTime).toISOString(),
             end_time: new Date().toISOString(),
             transcript: transcript,
-            messages: JSON.stringify(
-              chatHistory.filter((item) => item.type !== "avatar-partial")
-            ),
-            created_at: new Date().toISOString(),
+            messages: chatHistory.filter((item) => item.type !== "avatar-partial")
           };
 
           return { transcript, sessionData };
@@ -601,7 +591,6 @@
               }),
             }
           );
-
         }
 
         // Close session
