@@ -24,6 +24,14 @@
         font-weight: 600;
         opacity: 0.8;
       }
+      .recording {
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+      }
     </style>
   </head>
 
@@ -70,6 +78,19 @@
         >
           Talk (LLM)
         </button>
+        <button
+          id="voiceInputBtn"
+          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
+          </svg>
+          Voice Input
+        </button>
+      </div>
+
+      <div id="voiceStatus" class="hidden mb-2 text-center text-blue-600 font-medium">
+        Listening... Speak now
       </div>
 
       <video
@@ -119,7 +140,13 @@
         let avatarResponseTimer = null;
         let chatHistory = [];
         let sessionStartTime = null;
-        let isSaving = false; // Flag to prevent duplicate saves
+        let isSaving = false;
+        
+        // Voice recognition variables
+        let recognition = null;
+        let isListening = false;
+        let finalTranscript = '';
+        let interimTranscript = '';
 
         // DOM Elements
         const statusElement = document.getElementById("status");
@@ -127,6 +154,107 @@
         const avatarID = document.getElementById("avatarID");
         const voiceID = document.getElementById("voiceID");
         const taskInput = document.getElementById("taskInput");
+        const voiceInputBtn = document.getElementById("voiceInputBtn");
+        const voiceStatus = document.getElementById("voiceStatus");
+
+        // Initialize speech recognition
+        function initSpeechRecognition() {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          
+          if (!SpeechRecognition) {
+            updateStatus("Speech recognition not supported in this browser");
+            voiceInputBtn.disabled = true;
+            return;
+          }
+          
+          recognition = new SpeechRecognition();
+          recognition.continuous = false;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          
+          recognition.onstart = () => {
+            isListening = true;
+            voiceInputBtn.classList.add('recording');
+            voiceStatus.classList.remove('hidden');
+            updateStatus("Voice recognition started - speak now");
+          };
+          
+          recognition.onerror = (event) => {
+            updateStatus(`Voice recognition error: ${event.error}`);
+            stopVoiceRecognition();
+          };
+          
+          recognition.onend = () => {
+            if (isListening) {
+              // Automatically restart listening if we're still in listening mode
+              recognition.start();
+            } else {
+              stopVoiceRecognition();
+            }
+          };
+          
+          recognition.onresult = (event) => {
+            interimTranscript = '';
+            finalTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const transcript = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+              } else {
+                interimTranscript += transcript;
+              }
+            }
+            
+            // Update the input field with interim results
+            if (interimTranscript) {
+              taskInput.value = interimTranscript;
+            }
+            
+            // If we have a final result, send it
+            if (finalTranscript) {
+              taskInput.value = finalTranscript;
+              sendText(finalTranscript, "talk");
+              taskInput.value = "";
+              stopVoiceRecognition();
+            }
+          };
+        }
+        
+        // Start voice recognition
+        function startVoiceRecognition() {
+          if (!recognition) {
+            initSpeechRecognition();
+          }
+          
+          if (recognition) {
+            try {
+              recognition.start();
+            } catch (error) {
+              updateStatus(`Error starting voice recognition: ${error}`);
+            }
+          }
+        }
+        
+        // Stop voice recognition
+        function stopVoiceRecognition() {
+          if (recognition) {
+            isListening = false;
+            recognition.stop();
+            voiceInputBtn.classList.remove('recording');
+            voiceStatus.classList.add('hidden');
+            updateStatus("Voice recognition stopped");
+          }
+        }
+        
+        // Toggle voice recognition
+        function toggleVoiceRecognition() {
+          if (isListening) {
+            stopVoiceRecognition();
+          } else {
+            startVoiceRecognition();
+          }
+        }
 
         // Helper function to update status
         function updateStatus(message) {
@@ -349,39 +477,38 @@
         }
 
         // Helper function to format chat for storage
-        // Helper function to format chat for storage
-function formatChatForStorage() {
-  let cleanTranscript = "";
-  
-  // Filter and format messages
-  const filteredMessages = chatHistory.filter(item => 
-    item.type === "user" || item.type === "avatar"
-  );
-  
-  filteredMessages.forEach(item => {
-    // Extract just the message content without timestamp
-    const messageParts = item.message.split('] '); // Split at timestamp
-    const messageContent = messageParts.slice(1).join('] '); // Get everything after timestamp
-    
-    if (item.type === "user") {
-      cleanTranscript += `${messageContent}\n`;
-    } else if (item.type === "avatar") {
-      cleanTranscript += `${messageContent}\n`;
-    }
-  });
+        function formatChatForStorage() {
+          let cleanTranscript = "";
+          
+          // Filter and format messages
+          const filteredMessages = chatHistory.filter(item => 
+            item.type === "user" || item.type === "avatar"
+          );
+          
+          filteredMessages.forEach(item => {
+            // Extract just the message content without timestamp
+            const messageParts = item.message.split('] ');
+            const messageContent = messageParts.slice(1).join('] ');
+            
+            if (item.type === "user") {
+              cleanTranscript += `${messageContent}\n`;
+            } else if (item.type === "avatar") {
+              cleanTranscript += `${messageContent}\n`;
+            }
+          });
 
-  const sessionData = {
-    session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
-    avatar_id: avatarID.value || "not-specified",
-    voice_id: voiceID.value || "not-specified",
-    start_time: new Date(sessionStartTime).toISOString(),
-    end_time: new Date().toISOString(),
-    transcript: cleanTranscript.trim(), // Trim any extra whitespace
-    messages: chatHistory.filter((item) => item.type !== "avatar-partial")
-  };
+          const sessionData = {
+            session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
+            avatar_id: avatarID.value || "not-specified",
+            voice_id: voiceID.value || "not-specified",
+            start_time: new Date(sessionStartTime).toISOString(),
+            end_time: new Date().toISOString(),
+            transcript: cleanTranscript.trim(),
+            messages: chatHistory.filter((item) => item.type !== "avatar-partial")
+          };
 
-  return { transcript: cleanTranscript.trim(), sessionData };
-}
+          return { transcript: cleanTranscript.trim(), sessionData };
+        }
 
         // Get session token
         async function getSessionToken() {
@@ -613,6 +740,11 @@ function formatChatForStorage() {
             clearTimeout(avatarResponseTimer);
           }
 
+          // Stop voice recognition if active
+          if (isListening) {
+            stopVoiceRecognition();
+          }
+
           try {
             const response = await fetch(
               `${API_CONFIG.serverUrl}/v1/streaming.stop`,
@@ -655,16 +787,12 @@ function formatChatForStorage() {
         }
 
         // Event Listeners
-        document
-          .querySelector("#startBtn")
-          .addEventListener("click", async () => {
-            await createNewSession();
-            await startStreamingSession();
-          });
+        document.querySelector("#startBtn").addEventListener("click", async () => {
+          await createNewSession();
+          await startStreamingSession();
+        });
 
-        document
-          .querySelector("#closeBtn")
-          .addEventListener("click", closeSession);
+        document.querySelector("#closeBtn").addEventListener("click", closeSession);
 
         document.querySelector("#talkBtn").addEventListener("click", () => {
           const text = taskInput.value.trim();
@@ -673,6 +801,8 @@ function formatChatForStorage() {
             taskInput.value = "";
           }
         });
+
+        document.querySelector("#voiceInputBtn").addEventListener("click", toggleVoiceRecognition);
 
         taskInput.addEventListener("keypress", (e) => {
           if (e.key === "Enter") {
@@ -688,6 +818,11 @@ function formatChatForStorage() {
           if (sessionInfo) {
             await saveChatToDatabase();
             saveChatToTextFile();
+          }
+          
+          // Stop voice recognition if active
+          if (isListening) {
+            stopVoiceRecognition();
           }
         });
       });
