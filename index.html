@@ -36,18 +36,29 @@
   </div>
 
   <script>
-    document.getElementById('studentForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      const studentId = document.getElementById('studentId').value.trim();
-      if (studentId) {
-        sessionStorage.setItem('studentId', studentId);
-        const urlParams = new URLSearchParams(window.location.search);
-        const avatar = urlParams.get('avatar');
-        console.log("Avatar param from URL:", avatar);
-        window.location.href = `avatar.html?avatar=${avatar || '1'}`;
+  document.getElementById('studentForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const studentId = document.getElementById('studentId').value.trim();
+    if (studentId) {
+      sessionStorage.setItem('studentId', studentId);
+      const urlParams = new URLSearchParams(window.location.search);
+      const avatar = urlParams.get('avatar') || sessionStorage.getItem('redirectAvatar');
+      if (avatar) {
+        window.location.href = `avatar.html?avatar=${avatar}`;
+      } else {
+        window.location.href = 'avatar.html'; // Default case
       }
-    });
-  </script>
+    }
+  });
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const avatar = urlParams.get('avatar');
+    if (avatar) {
+      sessionStorage.setItem('redirectAvatar', avatar);
+    }
+  });
+</script>
 
 </body>
 </html>

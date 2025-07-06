@@ -291,14 +291,19 @@
       );
 
       document.addEventListener("DOMContentLoaded", async () => {
-        // Get the selected avatar from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const avatarKey = urlParams.get("avatar") || "1";
+        const avatarKey =
+          urlParams.get("avatar") ||
+          sessionStorage.getItem("redirectAvatar") ||
+          "1";
         const avatarName = AVATARS[avatarKey] || AVATARS["1"];
 
         // Get student ID from session storage
         const studentId = sessionStorage.getItem("studentId");
         if (!studentId) {
+          if (avatarKey && avatarKey !== "1") {
+            sessionStorage.setItem("redirectAvatar", avatarKey);
+          }
           window.location.href = "student_id.html";
           return;
         }
@@ -992,6 +997,10 @@
 
             await saveChatToDatabase();
             saveChatToTextFile();
+            
+            sessionStorage.removeItem("studentId");
+            sessionStorage.removeItem("redirectAvatar");
+
 
             sessionInfo = null;
             room = null;
