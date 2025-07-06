@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <title>Avatar Interaction</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
@@ -8,921 +8,1028 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        .recording {
-            animation: pulse 1.5s infinite;
+      .recording {
+        position: relative;
+      }
+      .recording::after {
+        content: "";
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        top: 5px;
+        right: 5px;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          opacity: 1;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        50% {
+          transform: scale(1.2);
+          opacity: 0.7;
         }
-        .mic-btn {
-            background-color: #3b82f6;
-            color: white;
-            border-radius: 12px;
-            width: 120px;
-            height: 50px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s;
-            margin: 0 10px;
-            font-weight: 600;
+        100% {
+          transform: scale(1);
+          opacity: 1;
         }
-        .close-btn {
-            background-color: #ef4444;
-            color: white;
-            border-radius: 12px;
-            width: 120px;
-            height: 50px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s;
-            margin: 0 10px;
-            font-weight: 600;
+      }
+      .voice-waves {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 24px;
+      }
+      .voice-waves span {
+        display: inline-block;
+        width: 3px;
+        background-color: white;
+        border-radius: 3px;
+        animation: wave 1.5s infinite ease-in-out;
+      }
+      .voice-waves span:nth-child(1) {
+        height: 8px;
+        animation-delay: 0.1s;
+      }
+      .voice-waves span:nth-child(2) {
+        height: 12px;
+        animation-delay: 0.2s;
+      }
+      .voice-waves span:nth-child(3) {
+        height: 16px;
+        animation-delay: 0.3s;
+      }
+      .voice-waves span:nth-child(4) {
+        height: 12px;
+        animation-delay: 0.4s;
+      }
+      .voice-waves span:nth-child(5) {
+        height: 8px;
+        animation-delay: 0.5s;
+      }
+      @keyframes wave {
+        0%,
+        100% {
+          transform: scaleY(1);
         }
-        .mic-btn:hover, .close-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        50% {
+          transform: scaleY(0.3);
         }
-        .mic-btn:active, .close-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .avatar-message {
-            color: #2563eb;
-            font-weight: 600;
-        }
-        .user-message {
-            color: #059669;
-            font-weight: 600;
-        }
-        .status-message {
-            color: #6b7280;
-        }
-        .current-avatar-message {
-            color: #2563eb;
-            font-weight: 600;
-            opacity: 0.8;
-        }
-        .button-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 1.25rem;
-            gap: 1rem;
-        }
-        .video-container {
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            background: black;
-            position: relative;
-        }
-        .video-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
-            pointer-events: none;
-        }
-        .status-box {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
-        }
-        .header-text {
-            color: #1f2937;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.25rem;
-        }
-        .no-speech {
-            animation: shake 0.5s;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-5px); }
-            40%, 80% { transform: translateX(5px); }
-        }
+      }
+      .mic-btn {
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s;
+        position: relative;
+      }
+      .mic-btn:disabled {
+        background-color: #9ca3af;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+      .close-btn {
+        background-color: #ef4444;
+        color: white;
+        border-radius: 12px;
+        min-width: 120px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s;
+        font-weight: 600;
+        padding: 0 20px;
+      }
+      .close-btn:disabled {
+        background-color: #9ca3af;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+      .mic-btn:hover:not(:disabled),
+      .close-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+      }
+      .mic-btn:active:not(:disabled),
+      .close-btn:active:not(:disabled) {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .video-container {
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        background: black;
+        position: relative;
+      }
+      .video-container::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        pointer-events: none;
+      }
+      .header-text {
+        color: #1f2937;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.25rem;
+      }
+      .controls-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .connection-status {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        z-index: 10;
+      }
+      .connected {
+        background-color: #10b981;
+        color: white;
+      }
+      .disconnected {
+        background-color: #ef4444;
+        color: white;
+      }
+      .connecting {
+        background-color: #f59e0b;
+        color: white;
+      }
     </style>
-</head>
+  </head>
 
-<body class="bg-gray-50 p-5 font-sans">
+  <body
+    class="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 p-5 font-sans"
+  >
     <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-        <h1 class="header-text">Interactive Avatar Session</h1>
-        
-        <!-- Video Container -->
-        <div class="video-container mb-6">
-            <video
-                id="mediaElement"
-                class="w-full h-[500px] object-cover"
-                autoplay
-                playsinline
-            ></video>
-        </div>
+      <h1 class="header-text">Interactive Avatar Session</h1>
 
-        <!-- Button Container -->
-        <div class="button-container">
-            <!-- Voice Input Button -->
-            <button
-                id="voiceInputBtn"
-                class="mic-btn"
-                title="Click to start/stop recording"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
-                </svg>
-                Speak
-            </button>
-            
-            <!-- Close Session Button -->
-            <button
-                id="closeSessionBtn"
-                class="close-btn"
-                title="Click to end session"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-                End Session
-            </button>
+      <!-- Video Container -->
+      <div class="video-container mb-6 relative">
+        <div id="connectionStatus" class="connection-status disconnected">
+          Disconnected
         </div>
+        <video
+          id="mediaElement"
+          class="w-full h-[500px] object-cover"
+          autoplay
+          playsinline
+        ></video>
+      </div>
 
-        <!-- Transcript Box -->
-        <div id="status" class="status-box p-4 h-[200px] overflow-y-auto font-mono text-sm">
-            <div class="status-message">System initialized. Session started at ${new Date().toLocaleTimeString()}</div>
-        </div>
+      <!-- Controls Container -->
+      <div class="controls-container">
+        <!-- Voice Input Button -->
+        <button
+          id="voiceInputBtn"
+          class="mic-btn"
+          title="Click to start/stop recording"
+          disabled
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <div id="voiceWaves" class="voice-waves hidden">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </button>
+
+        <!-- Close Session Button -->
+        <button
+          id="closeSessionBtn"
+          class="close-btn"
+          title="Click to end session"
+          disabled
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 mr-2"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          End Session
+        </button>
+      </div>
     </div>
 
     <script>
-        // Avatar configurations
-        const AVATARS = {
-            '1': 'Marianne_Chair_Sitting_public',
-            '2': 'Emma_20240711',
-            '3': 'Liam_20240711',
-            '4': 'Olivia_20240711'
+      // Avatar configurations
+      const AVATARS = {
+        1: "Marianne_Chair_Sitting_public",
+        2: "Silas_CustomerSupport_public",
+        3: "June_HR_public",
+        4: "June_HR_public",
+      };
+
+      // Supabase Configuration
+      const SUPABASE_CONFIG = {
+        url: "https://lkyfujgwyxpkgtcmhtlv.supabase.co",
+        key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreWZ1amd3eXhwa2d0Y21odGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MDA3NTcsImV4cCI6MjA2NjQ3Njc1N30.zkS4p_IaodtfrrD1Xs1Jax9fDkrg_VzPhx1eDolCFOk",
+      };
+
+      // HeyGen API Configuration
+      const API_CONFIG = {
+        apiKey: "YTg0NTk4OWVmNzU2NDZmOTlmZmNkYTljZjAzMDI1ZTUtMTc1MTY0NDUyOA==",
+        serverUrl: "https://api.heygen.com",
+      };
+
+      // Timeout constants
+      const WS_TIMEOUT = 30000; // 30 seconds for WebSocket
+      const ROOM_TIMEOUT = 30000; // 30 seconds for Room
+      const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+      const SILENCE_TIMEOUT = 5000; // 5 seconds
+
+      const { createClient } = supabase;
+      const supabaseClient = createClient(
+        SUPABASE_CONFIG.url,
+        SUPABASE_CONFIG.key
+      );
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        // Get the selected avatar from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const avatarKey = urlParams.get("avatar") || "1";
+        const avatarName = AVATARS[avatarKey] || AVATARS["1"];
+
+        // Get student ID from session storage
+        const studentId = sessionStorage.getItem("studentId");
+        if (!studentId) {
+          window.location.href = "student_id.html";
+          return;
+        }
+
+        // Global variables
+        let sessionInfo = null;
+        let room = null;
+        let mediaStream = null;
+        let webSocket = null;
+        let sessionToken = null;
+        let chatHistory = [];
+        let sessionStartTime = null;
+        let isSaving = false;
+        let inactivityTimer = null;
+        let wsTimeoutTimer = null;
+        let roomTimeoutTimer = null;
+
+        // Voice recognition variables
+        let recognition = null;
+        let isListening = false;
+        let silenceTimer = null;
+
+        // Message tracking variables
+        let currentUserMessage = {
+          text: "",
+          startTime: null,
+          endTime: null,
+          isSpeaking: false,
         };
 
-        // Supabase Configuration
-        const SUPABASE_CONFIG = {
-            url: "https://lkyfujgwyxpkgtcmhtlv.supabase.co",
-            key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxreWZ1amd3eXhwa2d0Y21odGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5MDA3NTcsImV4cCI6MjA2NjQ3Njc1N30.zkS4p_IaodtfrrD1Xs1Jax9fDkrg_VzPhx1eDolCFOk",
-        };
-        
-        // HeyGen API Configuration
-        const API_CONFIG = {
-            apiKey: "YTg0NTk4OWVmNzU2NDZmOTlmZmNkYTljZjAzMDI1ZTUtMTc1MTY0NDUyOA==",
-            serverUrl: "https://api.heygen.com",
+        let currentAvatarResponse = {
+          text: "",
+          startTime: null,
+          endTime: null,
+          isSpeaking: false,
         };
 
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
+        let avatarResponseTimer = null;
 
-        document.addEventListener("DOMContentLoaded", async () => {
-            // Get the selected avatar from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const avatarKey = urlParams.get('avatar') || '1';
-            const avatarName = AVATARS[avatarKey] || AVATARS['1'];
-            
-            // Get student ID from session storage
-            const studentId = sessionStorage.getItem('studentId');
-            if (!studentId) {
-                window.location.href = 'student_id.html';
-                return;
+        // DOM Elements
+        const mediaElement = document.getElementById("mediaElement");
+        const voiceInputBtn = document.getElementById("voiceInputBtn");
+        const closeSessionBtn = document.getElementById("closeSessionBtn");
+        const voiceWaves = document.getElementById("voiceWaves");
+        const connectionStatus = document.getElementById("connectionStatus");
+
+        // Update button states
+        function updateButtonStates(connected) {
+          voiceInputBtn.disabled = !connected;
+          closeSessionBtn.disabled = !connected;
+        }
+
+        // Update connection status UI
+        function updateConnectionStatus(status) {
+          connectionStatus.textContent = status;
+          connectionStatus.className = "connection-status";
+
+          switch (status.toLowerCase()) {
+            case "connected":
+              connectionStatus.classList.add("connected");
+              updateButtonStates(true);
+              break;
+            case "connecting":
+              connectionStatus.classList.add("connecting");
+              updateButtonStates(false);
+              break;
+            default:
+              connectionStatus.classList.add("disconnected");
+              updateButtonStates(false);
+          }
+        }
+
+        // Reset inactivity timer
+        function resetInactivityTimer() {
+          if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+          }
+          inactivityTimer = setTimeout(() => {
+            closeSession();
+          }, INACTIVITY_TIMEOUT);
+        }
+
+        // Helper function to update status
+        function updateStatus(message) {
+          const timestamp = new Date().toLocaleTimeString();
+          const statusLine = `[${timestamp}] ${message}`;
+          chatHistory.push({
+            type: "status",
+            message: statusLine,
+            timestamp: Date.now(),
+          });
+          resetInactivityTimer();
+        }
+
+        // Function to display user messages
+        function displayUserMessage(message) {
+          const timestamp = new Date(
+            currentUserMessage.startTime
+          ).toLocaleTimeString();
+          const userLine = `[${timestamp}] You: ${message}`;
+
+          chatHistory.push({
+            type: "user",
+            message: userLine,
+            startTime: currentUserMessage.startTime,
+            endTime: currentUserMessage.endTime || Date.now(),
+            timestamp: Date.now(),
+          });
+          resetInactivityTimer();
+        }
+
+        // Function to handle avatar speech updates
+        function handleAvatarSpeech(message) {
+          if (!currentAvatarResponse.startTime) {
+            currentAvatarResponse.startTime = Date.now();
+            currentAvatarResponse.isSpeaking = true;
+          }
+          currentAvatarResponse.text += message;
+
+          if (avatarResponseTimer) {
+            clearTimeout(avatarResponseTimer);
+          }
+
+          avatarResponseTimer = setTimeout(() => {
+            if (currentAvatarResponse.isSpeaking) {
+              finalizeAvatarResponse();
+            }
+          }, 2000);
+        }
+
+        // Function to finalize avatar response
+        function finalizeAvatarResponse() {
+          if (
+            currentAvatarResponse.text.trim() &&
+            currentAvatarResponse.startTime
+          ) {
+            const timestamp = new Date(
+              currentAvatarResponse.startTime
+            ).toLocaleTimeString();
+            const formattedText = currentAvatarResponse.text
+              .replace(/\s*([,.!?])\s*/g, "$1 ")
+              .replace(/\s+/g, " ")
+              .trim();
+
+            const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
+
+            chatHistory.push({
+              type: "avatar",
+              message: avatarLine,
+              startTime: currentAvatarResponse.startTime,
+              endTime: Date.now(),
+              timestamp: Date.now(),
+            });
+          }
+
+          currentAvatarResponse = {
+            text: "",
+            startTime: null,
+            endTime: null,
+            isSpeaking: false,
+          };
+          resetInactivityTimer();
+        }
+
+        // Initialize speech recognition
+        function initSpeechRecognition() {
+          const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+
+          if (!SpeechRecognition) {
+            voiceInputBtn.disabled = true;
+            return;
+          }
+
+          recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = "en-US";
+
+          recognition.onstart = () => {
+            isListening = true;
+            voiceInputBtn.classList.add("recording");
+            voiceWaves.classList.remove("hidden");
+
+            // Set timeout for silence
+            silenceTimer = setTimeout(() => {
+              if (isListening) {
+                stopVoiceRecognition();
+              }
+            }, SILENCE_TIMEOUT);
+          };
+
+          recognition.onerror = (event) => {
+            clearTimeout(silenceTimer);
+            stopVoiceRecognition();
+          };
+
+          recognition.onend = () => {
+            clearTimeout(silenceTimer);
+            if (isListening) {
+              recognition.start();
+            } else {
+              stopVoiceRecognition();
+            }
+          };
+
+          recognition.onresult = (event) => {
+            clearTimeout(silenceTimer);
+            let finalTranscript = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              }
             }
 
-            // Global variables
-            let sessionInfo = null;
-            let room = null;
-            let mediaStream = null;
-            let webSocket = null;
-            let sessionToken = null;
-            let chatHistory = [];
-            let sessionStartTime = null;
-            let isSaving = false;
-            let inactivityTimer = null;
-            const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-            
-            // Voice recognition variables
-            let recognition = null;
-            let isListening = false;
-            let silenceTimer = null;
-            const SILENCE_TIMEOUT = 100000; // 5 seconds
+            if (finalTranscript) {
+              currentUserMessage.text = finalTranscript;
+              displayUserMessage(finalTranscript);
+              sendText(finalTranscript, "talk");
+              stopVoiceRecognition();
+            }
+          };
+        }
 
-            // Message tracking variables
-            let currentUserMessage = {
-                text: "",
-                startTime: null,
-                endTime: null,
-                isSpeaking: false
-            };
-            
-            let currentAvatarResponse = {
-                text: "",
-                startTime: null,
-                endTime: null,
-                isSpeaking: false,
-            };
-            
-            let avatarResponseTimer = null;
+        // Start voice recognition
+        function startVoiceRecognition() {
+          if (!recognition) {
+            initSpeechRecognition();
+          }
 
-            // DOM Elements
-            const statusElement = document.getElementById("status");
-            const mediaElement = document.getElementById("mediaElement");
-            const voiceInputBtn = document.getElementById("voiceInputBtn");
-            const closeSessionBtn = document.getElementById("closeSessionBtn");
+          currentUserMessage = {
+            text: "",
+            startTime: new Date(),
+            endTime: null,
+            isSpeaking: true,
+          };
 
-            // Reset inactivity timer
-            function resetInactivityTimer() {
-                if (inactivityTimer) {
-                    clearTimeout(inactivityTimer);
+          if (recognition) {
+            try {
+              recognition.start();
+            } catch (error) {
+              stopVoiceRecognition();
+            }
+          }
+        }
+
+        // Stop voice recognition
+        function stopVoiceRecognition() {
+          if (recognition) {
+            isListening = false;
+            recognition.stop();
+            voiceInputBtn.classList.remove("recording");
+            voiceWaves.classList.add("hidden");
+
+            if (currentUserMessage.isSpeaking) {
+              currentUserMessage.endTime = new Date();
+              currentUserMessage.isSpeaking = false;
+            }
+          }
+        }
+
+        // Toggle voice recognition
+        function toggleVoiceRecognition() {
+          if (isListening) {
+            stopVoiceRecognition();
+          } else {
+            startVoiceRecognition();
+          }
+        }
+
+        // Get session token
+        async function getSessionToken() {
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.create_token`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Api-Key": API_CONFIG.apiKey,
+              },
+            }
+          );
+
+          const data = await response.json();
+          sessionToken = data.data.token;
+          updateStatus("Session token obtained");
+        }
+
+        // Connect WebSocket with timeout
+        async function connectWebSocket(sessionId) {
+          updateConnectionStatus("Connecting");
+
+          // Clear any existing timeout
+          if (wsTimeoutTimer) {
+            clearTimeout(wsTimeoutTimer);
+          }
+
+          // Set new timeout
+          wsTimeoutTimer = setTimeout(() => {
+            if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
+              updateStatus("WebSocket connection timed out");
+              updateConnectionStatus("Disconnected");
+            }
+          }, WS_TIMEOUT);
+
+          const params = new URLSearchParams({
+            session_id: sessionId,
+            session_token: sessionToken,
+            silence_response: false,
+            opening_text: "Hello, how can I help you today?",
+            stt_language: "en",
+          });
+
+          const wsUrl = `wss://${
+            new URL(API_CONFIG.serverUrl).hostname
+          }/v1/ws/streaming.chat?${params}`;
+
+          webSocket = new WebSocket(wsUrl);
+
+          webSocket.addEventListener("message", (event) => {
+            try {
+              const eventData = JSON.parse(event.data);
+
+              if (eventData.type === "avatar_talking_message") {
+                if (eventData.message) {
+                  handleAvatarSpeech(eventData.message);
                 }
-                inactivityTimer = setTimeout(() => {
-                    updateStatus("Session ending due to inactivity");
-                    closeSession();
-                }, INACTIVITY_TIMEOUT);
-            }
 
-            // Helper function to update status
-            function updateStatus(message) {
-                const timestamp = new Date().toLocaleTimeString();
-                const statusLine = `[${timestamp}] ${message}`;
-                statusElement.innerHTML += `<div class="status-message">${statusLine}</div>`;
-                statusElement.scrollTop = statusElement.scrollHeight;
-                chatHistory.push({
-                    type: "status",
-                    message: statusLine,
-                    timestamp: Date.now(),
+                if (eventData.is_final) {
+                  finalizeAvatarResponse();
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing WebSocket message:", e);
+            }
+          });
+
+          webSocket.addEventListener("open", () => {
+            clearTimeout(wsTimeoutTimer);
+            updateStatus("WebSocket connection established");
+            updateConnectionStatus("Connected");
+          });
+
+          webSocket.addEventListener("close", () => {
+            clearTimeout(wsTimeoutTimer);
+            updateStatus("WebSocket connection closed");
+            updateConnectionStatus("Disconnected");
+            saveChatToDatabase();
+          });
+
+          webSocket.addEventListener("error", (error) => {
+            clearTimeout(wsTimeoutTimer);
+            updateStatus(`WebSocket error: ${error.message}`);
+            updateConnectionStatus("Disconnected");
+          });
+        }
+
+        // Create new session
+        async function createNewSession() {
+          chatHistory = [];
+          sessionStartTime = Date.now();
+
+          if (!sessionToken) {
+            await getSessionToken();
+          }
+
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.new`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({
+                quality: "high",
+                avatar_name: avatarName,
+                version: "v2",
+                video_encoding: "H264",
+              }),
+            }
+          );
+
+          const data = await response.json();
+          if (!response.ok) {
+            console.error("API error:", data);
+            return;
+          }
+          sessionInfo = data.data;
+
+          room = new LivekitClient.Room({
+            adaptiveStream: true,
+            dynacast: true,
+            videoCaptureDefaults: {
+              resolution: LivekitClient.VideoPresets.h720.resolution,
+            },
+          });
+
+          room.on(LivekitClient.RoomEvent.DataReceived, (message) => {
+            try {
+              const data = new TextDecoder().decode(message);
+              const parsedData = JSON.parse(data);
+
+              if (parsedData.type === "avatar_talking_message") {
+                if (parsedData.message) {
+                  handleAvatarSpeech(parsedData.message);
+                }
+                if (parsedData.is_final) {
+                  finalizeAvatarResponse();
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing room message:", e);
+            }
+          });
+
+          mediaStream = new MediaStream();
+          room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+            if (track.kind === "video" || track.kind === "audio") {
+              mediaStream.addTrack(track.mediaStreamTrack);
+              if (
+                mediaStream.getVideoTracks().length > 0 &&
+                mediaStream.getAudioTracks().length > 0
+              ) {
+                mediaElement.srcObject = mediaStream;
+              }
+            }
+          });
+
+          room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+            const mediaTrack = track.mediaStreamTrack;
+            if (mediaTrack) {
+              mediaStream.removeTrack(mediaTrack);
+            }
+          });
+
+          room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+            clearTimeout(roomTimeoutTimer);
+            updateStatus(`Room disconnected: ${reason}`);
+            updateConnectionStatus("Disconnected");
+            saveChatToDatabase();
+          });
+
+          await room.prepareConnection(
+            sessionInfo.url,
+            sessionInfo.access_token
+          );
+
+          await connectWebSocket(sessionInfo.session_id);
+        }
+
+        // Start streaming session with timeout
+        async function startStreamingSession() {
+          updateConnectionStatus("Connecting");
+
+          // Clear any existing timeout
+          if (roomTimeoutTimer) {
+            clearTimeout(roomTimeoutTimer);
+          }
+
+          // Set new timeout
+          roomTimeoutTimer = setTimeout(() => {
+            if (!room || room.state !== LivekitClient.RoomState.Connected) {
+              updateStatus("Room connection timed out");
+              updateConnectionStatus("Disconnected");
+            }
+          }, ROOM_TIMEOUT);
+
+          try {
+            const startResponse = await fetch(
+              `${API_CONFIG.serverUrl}/v1/streaming.start`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${sessionToken}`,
+                },
+                body: JSON.stringify({
+                  session_id: sessionInfo.session_id,
+                }),
+              }
+            );
+
+            await room.connect(sessionInfo.url, sessionInfo.access_token);
+            clearTimeout(roomTimeoutTimer);
+            updateStatus("Connected to room");
+            updateConnectionStatus("Connected");
+          } catch (error) {
+            clearTimeout(roomTimeoutTimer);
+            updateStatus(`Room connection error: ${error.message}`);
+            updateConnectionStatus("Disconnected");
+            throw error;
+          }
+        }
+
+        // Send text to avatar
+        async function sendText(text, taskType = "talk") {
+          if (!sessionInfo) return;
+
+          const response = await fetch(
+            `${API_CONFIG.serverUrl}/v1/streaming.task`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${sessionToken}`,
+              },
+              body: JSON.stringify({
+                session_id: sessionInfo.session_id,
+                text: text,
+                task_type: taskType,
+              }),
+            }
+          );
+        }
+
+        // Helper function to format chat for storage
+        function formatChatForStorage() {
+          let cleanTranscript = "";
+
+          const detailedMessages = [];
+
+          chatHistory
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .forEach((item) => {
+              if (item.type === "user") {
+                detailedMessages.push({
+                  type: "user",
+                  content: item.message.split("You: ")[1] || "",
+                  start_time: new Date(item.startTime).toISOString(),
+                  end_time: new Date(
+                    item.endTime || item.timestamp
+                  ).toISOString(),
                 });
-                resetInactivityTimer();
-            }
-
-            // Function to display user messages
-            function displayUserMessage(message) {
-                const timestamp = new Date(currentUserMessage.startTime).toLocaleTimeString();
-                const userLine = `[${timestamp}] You: ${message}`;
-                statusElement.innerHTML += `<div class="user-message">${userLine}</div>`;
-                statusElement.scrollTop = statusElement.scrollHeight;
-                
-                chatHistory.push({
-                    type: "user",
-                    message: userLine,
-                    startTime: currentUserMessage.startTime,
-                    endTime: currentUserMessage.endTime || Date.now(),
-                    timestamp: Date.now(),
+                cleanTranscript += `You: ${
+                  item.message.split("You: ")[1] || ""
+                }\n`;
+              } else if (item.type === "avatar") {
+                detailedMessages.push({
+                  type: "avatar",
+                  content: item.message.split("Avatar: ")[1] || "",
+                  start_time: new Date(item.startTime).toISOString(),
+                  end_time: new Date(
+                    item.endTime || item.timestamp
+                  ).toISOString(),
                 });
-                resetInactivityTimer();
-            }
-
-            // Function to display partial avatar response
-            function displayPartialResponse() {
-                const formattedText = currentAvatarResponse.text
-                    .replace(/\s*([,.!?])\s*/g, "$1 ")
-                    .replace(/\s+/g, " ")
-                    .trim();
-
-                let avatarMsgElement = document.querySelector(".current-avatar-message");
-                const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-                const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
-
-                if (!avatarMsgElement) {
-                    statusElement.innerHTML += `<div class="current-avatar-message">${avatarLine}</div>`;
-                } else {
-                    avatarMsgElement.textContent = avatarLine;
-                }
-
-                statusElement.scrollTop = statusElement.scrollHeight;
-
-                const existingIndex = chatHistory.findIndex(
-                    (item) => item.type === "avatar-partial" && item.startTime === currentAvatarResponse.startTime
-                );
-
-                if (existingIndex >= 0) {
-                    chatHistory[existingIndex].message = avatarLine;
-                } else {
-                    chatHistory.push({
-                        type: "avatar-partial",
-                        message: avatarLine,
-                        startTime: currentAvatarResponse.startTime,
-                        timestamp: Date.now(),
-                    });
-                }
-                resetInactivityTimer();
-            }
-
-            // Function to handle avatar speech updates
-            function handleAvatarSpeech(message) {
-                if (!currentAvatarResponse.startTime) {
-                    currentAvatarResponse.startTime = Date.now();
-                    currentAvatarResponse.isSpeaking = true;
-                }
-                currentAvatarResponse.text += message;
-
-                displayPartialResponse();
-
-                if (avatarResponseTimer) {
-                    clearTimeout(avatarResponseTimer);
-                }
-
-                avatarResponseTimer = setTimeout(() => {
-                    if (currentAvatarResponse.isSpeaking) {
-                        displayAvatarResponse();
-                    }
-                }, 2000);
-            }
-
-            // Function to finalize and display avatar response
-            function displayAvatarResponse() {
-                if (currentAvatarResponse.text.trim() && currentAvatarResponse.startTime) {
-                    const tempElement = document.querySelector(".current-avatar-message");
-                    const timestamp = new Date(currentAvatarResponse.startTime).toLocaleTimeString();
-                    const formattedText = currentAvatarResponse.text
-                        .replace(/\s*([,.!?])\s*/g, "$1 ")
-                        .replace(/\s+/g, " ")
-                        .trim();
-
-                    const avatarLine = `[${timestamp}] Avatar: ${formattedText}`;
-
-                    if (tempElement) {
-                        tempElement.classList.remove("current-avatar-message");
-                        tempElement.classList.add("avatar-message");
-                        tempElement.textContent = avatarLine;
-                    } else {
-                        statusElement.innerHTML += `<div class="avatar-message">${avatarLine}</div>`;
-                    }
-
-                    statusElement.scrollTop = statusElement.scrollHeight;
-
-                    chatHistory = chatHistory.filter(
-                        (item) => !(item.type === "avatar-partial" && item.startTime === currentAvatarResponse.startTime)
-                    );
-                    chatHistory.push({
-                        type: "avatar",
-                        message: avatarLine,
-                        startTime: currentAvatarResponse.startTime,
-                        endTime: Date.now(),
-                        timestamp: Date.now()
-                    });
-                }
-
-                currentAvatarResponse = {
-                    text: "",
-                    startTime: null,
-                    endTime: null,
-                    isSpeaking: false,
-                };
-                resetInactivityTimer();
-            }
-
-            // Initialize speech recognition
-            function initSpeechRecognition() {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                
-                if (!SpeechRecognition) {
-                    updateStatus("Speech recognition not supported in this browser");
-                    voiceInputBtn.disabled = true;
-                    return;
-                }
-                
-                recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                recognition.lang = 'en-US';
-                
-                recognition.onstart = () => {
-                    isListening = true;
-                    voiceInputBtn.classList.add('recording');
-                    updateStatus("Voice recognition started - speak now");
-                    
-                    // Set timeout for silence
-                    silenceTimer = setTimeout(() => {
-                        if (isListening) {
-                            updateStatus("No speech detected - stopping recording");
-                            voiceInputBtn.classList.add('no-speech');
-                            setTimeout(() => voiceInputBtn.classList.remove('no-speech'), 500);
-                            stopVoiceRecognition();
-                        }
-                    }, SILENCE_TIMEOUT);
-                };
-                
-                recognition.onerror = (event) => {
-                    clearTimeout(silenceTimer);
-                    updateStatus(`Voice recognition error: ${event.error}`);
-                    stopVoiceRecognition();
-                };
-                
-                recognition.onend = () => {
-                    clearTimeout(silenceTimer);
-                    if (isListening) {
-                        // Automatically restart listening if we're still in listening mode
-                        recognition.start();
-                    } else {
-                        stopVoiceRecognition();
-                    }
-                };
-                
-                recognition.onresult = (event) => {
-                    clearTimeout(silenceTimer); // Reset silence timer when speech is detected
-                    let interimTranscript = '';
-                    let finalTranscript = '';
-                    
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        const transcript = event.results[i][0].transcript;
-                        if (event.results[i].isFinal) {
-                            finalTranscript += transcript;
-                        } else {
-                            interimTranscript += transcript;
-                        }
-                    }
-                    
-                    // Update current user message text
-                    if (finalTranscript || interimTranscript) {
-                        currentUserMessage.text = finalTranscript || interimTranscript;
-                    }
-                    
-                    if (finalTranscript) {
-                        displayUserMessage(finalTranscript);
-                        sendText(finalTranscript, "talk");
-                        stopVoiceRecognition();
-                    }
-                };
-            }
-            
-            // Start voice recognition
-            function startVoiceRecognition() {
-                if (!recognition) {
-                    initSpeechRecognition();
-                }
-                
-                // Start tracking user speech
-                currentUserMessage = {
-                    text: "",
-                    startTime: new Date(),
-                    endTime: null,
-                    isSpeaking: true
-                };
-                
-                if (recognition) {
-                    try {
-                        recognition.start();
-                    } catch (error) {
-                        updateStatus(`Error starting voice recognition: ${error}`);
-                    }
-                }
-            }
-            
-            // Stop voice recognition
-            function stopVoiceRecognition() {
-                if (recognition) {
-                    isListening = false;
-                    recognition.stop();
-                    voiceInputBtn.classList.remove('recording');
-                    updateStatus("Voice recognition stopped");
-                    
-                    // Finalize user message tracking
-                    if (currentUserMessage.isSpeaking) {
-                        currentUserMessage.endTime = new Date();
-                        currentUserMessage.isSpeaking = false;
-                    }
-                }
-            }
-
-            // Toggle voice recognition
-            function toggleVoiceRecognition() {
-                if (isListening) {
-                    stopVoiceRecognition();
-                } else {
-                    startVoiceRecognition();
-                }
-            }
-
-            // Get session token
-            async function getSessionToken() {
-                const response = await fetch(
-                    `${API_CONFIG.serverUrl}/v1/streaming.create_token`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-Api-Key": API_CONFIG.apiKey,
-                        },
-                    }
-                );
-
-                const data = await response.json();
-                sessionToken = data.data.token;
-                updateStatus("Session token obtained");
-            }
-
-            // Connect WebSocket
-            async function connectWebSocket(sessionId) {
-                const params = new URLSearchParams({
-                    session_id: sessionId,
-                    session_token: sessionToken,
-                    silence_response: false,
-                    opening_text: "Hello, how can I help you today?",
-                    stt_language: "en",
+                cleanTranscript += `Avatar: ${
+                  item.message.split("Avatar: ")[1] || ""
+                }\n`;
+              } else if (item.type === "status") {
+                detailedMessages.push({
+                  type: "status",
+                  content: item.message,
+                  start_time: new Date(item.timestamp).toISOString(),
+                  end_time: new Date(item.timestamp).toISOString(),
                 });
-
-                const wsUrl = `wss://${new URL(API_CONFIG.serverUrl).hostname}/v1/ws/streaming.chat?${params}`;
-
-                webSocket = new WebSocket(wsUrl);
-
-                webSocket.addEventListener("message", (event) => {
-                    try {
-                        const eventData = JSON.parse(event.data);
-                        
-                        if (eventData.type === "avatar_talking_message") {
-                            if (eventData.message) {
-                                handleAvatarSpeech(eventData.message);
-                            }
-
-                            if (eventData.is_final) {
-                                displayAvatarResponse();
-                            }
-                        } else if (eventData.type === "status_update") {
-                            updateStatus(`Status: ${eventData.message}`);
-                        }
-                    } catch (e) {
-                        console.error("Error parsing WebSocket message:", e);
-                    }
-                });
-
-                webSocket.addEventListener("open", () => {
-                    updateStatus("WebSocket connection established");
-                });
-
-                webSocket.addEventListener("close", () => {
-                    updateStatus("WebSocket connection closed");
-                });
-
-                webSocket.addEventListener("error", (error) => {
-                    updateStatus(`WebSocket error: ${error.message}`);
-                });
-            }
-
-            // Create new session
-            async function createNewSession() {
-                chatHistory = [];
-                sessionStartTime = Date.now();
-
-                if (!sessionToken) {
-                    await getSessionToken();
-                }
-
-                const response = await fetch(
-                    `${API_CONFIG.serverUrl}/v1/streaming.new`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${sessionToken}`,
-                        },
-                        body: JSON.stringify({
-                            quality: "high",
-                            avatar_name: avatarName,
-                            version: "v2",
-                            video_encoding: "H264",
-                        }),
-                    }
-                );
-
-                const data = await response.json();
-                if (!response.ok) {
-                    console.error("API error:", data);
-                    updateStatus(`Error: ${data.message || "Invalid request"}`);
-                    return;
-                }
-                sessionInfo = data.data;
-
-                room = new LivekitClient.Room({
-                    adaptiveStream: true,
-                    dynacast: true,
-                    videoCaptureDefaults: {
-                        resolution: LivekitClient.VideoPresets.h720.resolution,
-                    },
-                });
-
-                room.on(LivekitClient.RoomEvent.DataReceived, (message) => {
-                    try {
-                        const data = new TextDecoder().decode(message);
-                        const parsedData = JSON.parse(data);
-
-                        if (parsedData.type === "avatar_talking_message") {
-                            if (parsedData.message) {
-                                handleAvatarSpeech(parsedData.message);
-                            }
-                            if (parsedData.is_final) {
-                                displayAvatarResponse();
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Error parsing room message:", e);
-                    }
-                });
-
-                mediaStream = new MediaStream();
-                room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
-                    if (track.kind === "video" || track.kind === "audio") {
-                        mediaStream.addTrack(track.mediaStreamTrack);
-                        if (
-                            mediaStream.getVideoTracks().length > 0 &&
-                            mediaStream.getAudioTracks().length > 0
-                        ) {
-                            mediaElement.srcObject = mediaStream;
-                            updateStatus("Media stream ready");
-                        }
-                    }
-                });
-
-                room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
-                    const mediaTrack = track.mediaStreamTrack;
-                    if (mediaTrack) {
-                        mediaStream.removeTrack(mediaTrack);
-                    }
-                });
-
-                room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
-                    updateStatus(`Room disconnected: ${reason}`);
-                });
-
-                await room.prepareConnection(
-                    sessionInfo.url,
-                    sessionInfo.access_token
-                );
-                updateStatus("Connection prepared");
-
-                await connectWebSocket(sessionInfo.session_id);
-                updateStatus("Session created successfully");
-            }
-
-            // Start streaming session
-            async function startStreamingSession() {
-                const startResponse = await fetch(
-                    `${API_CONFIG.serverUrl}/v1/streaming.start`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${sessionToken}`,
-                        },
-                        body: JSON.stringify({
-                            session_id: sessionInfo.session_id,
-                        }),
-                    }
-                );
-
-                await room.connect(sessionInfo.url, sessionInfo.access_token);
-                updateStatus("Connected to room");
-
-                updateStatus("Streaming started successfully");
-            }
-
-            // Send text to avatar
-            async function sendText(text, taskType = "talk") {
-                if (!sessionInfo) {
-                    updateStatus("No active session");
-                    return;
-                }
-
-                const response = await fetch(
-                    `${API_CONFIG.serverUrl}/v1/streaming.task`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${sessionToken}`,
-                        },
-                        body: JSON.stringify({
-                            session_id: sessionInfo.session_id,
-                            text: text,
-                            task_type: taskType,
-                        }),
-                    }
-                );
-            }
-
-            // Helper function to format chat for storage with detailed message timing
-            function formatChatForStorage() {
-                let cleanTranscript = "";
-                
-                // Process messages for detailed storage with start/end times
-                const detailedMessages = [];
-                
-                // Process all messages in chronological order
-                chatHistory.sort((a, b) => a.timestamp - b.timestamp).forEach(item => {
-                    if (item.type === "user") {
-                        detailedMessages.push({
-                            type: "user",
-                            content: item.message.split('You: ')[1] || '',
-                            start_time: new Date(item.startTime).toISOString(),
-                            end_time: new Date(item.endTime || item.timestamp).toISOString()
-                        });
-                        cleanTranscript += `You: ${item.message.split('You: ')[1] || ''}\n`;
-                    } 
-                    else if (item.type === "avatar") {
-                        detailedMessages.push({
-                            type: "avatar",
-                            content: item.message.split('Avatar: ')[1] || '',
-                            start_time: new Date(item.startTime).toISOString(),
-                            end_time: new Date(item.endTime || item.timestamp).toISOString()
-                        });
-                        cleanTranscript += `Avatar: ${item.message.split('Avatar: ')[1] || ''}\n`;
-                    }
-                    else if (item.type === "status") {
-                        detailedMessages.push({
-                            type: "status",
-                            content: item.message,
-                            start_time: new Date(item.timestamp).toISOString(),
-                            end_time: new Date(item.timestamp).toISOString()
-                        });
-                    }
-                });
-
-                const sessionData = {
-                    session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
-                    avatar_id: avatarName || "not-specified",
-                    student_id: studentId,
-                    start_time: new Date(sessionStartTime).toISOString(),
-                    end_time: new Date().toISOString(),
-                    transcript: cleanTranscript.trim(),
-                    messages: detailedMessages
-                };
-
-                return { transcript: cleanTranscript.trim(), sessionData };
-            }
-
-            // Save chat to Supabase with detailed message timing
-            async function saveChatToDatabase() {
-                if (isSaving || chatHistory.length === 0) return;
-                isSaving = true;
-
-                const { transcript, sessionData } = formatChatForStorage();
-
-                try {
-                    const { data, error } = await supabaseClient
-                        .from("conversation_transcripts")
-                        .insert([{
-                            session_id: sessionData.session_id,
-                            avatar_id: sessionData.avatar_id,
-                            student_id: sessionData.student_id,
-                            start_time: sessionData.start_time,
-                            end_time: sessionData.end_time,
-                            full_transcript: transcript,
-                            messages: sessionData.messages
-                        }]);
-
-                    if (error) throw error;
-                    updateStatus("Chat saved to database successfully");
-                    return true;
-                } catch (error) {
-                    console.error("Supabase error:", error);
-                    updateStatus(`Error saving to database: ${error.message}`);
-                    return false;
-                } finally {
-                    isSaving = false;
-                }
-            }
-
-            // Save chat to text file
-            function saveChatToTextFile() {
-                if (chatHistory.length === 0) {
-                    updateStatus("No chat history to save");
-                    return;
-                }
-
-                let fullTranscript = "Chat Session Transcript\n=======================\n\n";
-
-                if (sessionInfo) {
-                    fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
-                    fullTranscript += `Student ID: ${studentId || "Not provided"}\n`;
-                    fullTranscript += `Avatar: ${avatarName || "Not specified"}\n`;
-                    fullTranscript += `Started: ${new Date(sessionStartTime).toLocaleString()}\n`;
-                    fullTranscript += `Ended: ${new Date().toLocaleString()}\n\n`;
-                }
-
-                chatHistory.sort((a, b) => a.timestamp - b.timestamp);
-                chatHistory.forEach((item) => {
-                    if (item.type !== "avatar-partial") {
-                        fullTranscript += item.message + "\n";
-                    }
-                });
-
-                try {
-                    const blob = new Blob([fullTranscript], { type: "text/plain" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `chat_session_${
-                        sessionInfo ? sessionInfo.session_id : ""
-                    }_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-
-                    updateStatus("Chat saved as text file");
-                } catch (error) {
-                    console.error("Error saving text file:", error);
-                    updateStatus(`Error saving text file: ${error.message}`);
-                }
-            }
-
-            // Close session
-            async function closeSession() {
-                if (!sessionInfo) {
-                    updateStatus("No active session");
-                    return;
-                }
-
-                if (currentAvatarResponse.isSpeaking) {
-                    displayAvatarResponse();
-                }
-
-                if (avatarResponseTimer) {
-                    clearTimeout(avatarResponseTimer);
-                }
-
-                // Stop voice recognition if active
-                if (isListening) {
-                    stopVoiceRecognition();
-                }
-
-                try {
-                    const response = await fetch(
-                        `${API_CONFIG.serverUrl}/v1/streaming.stop`,
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${sessionToken}`,
-                            },
-                            body: JSON.stringify({
-                                session_id: sessionInfo.session_id,
-                            }),
-                        }
-                    );
-
-                    if (webSocket) {
-                        webSocket.close();
-                    }
-                    if (room) {
-                        room.disconnect();
-                    }
-
-                    mediaElement.srcObject = null;
-
-                    // Save to database and text file
-                    await saveChatToDatabase();
-                    saveChatToTextFile();
-
-                    sessionInfo = null;
-                    room = null;
-                    mediaStream = null;
-                    sessionToken = null;
-
-                    updateStatus("Session closed and chat saved");
-                    
-                    // Redirect back to student ID page after a delay
-                    setTimeout(() => {
-                        window.location.href = 'student_id.html';
-                    }, 2000);
-                } catch (error) {
-                    console.error("Error closing session:", error);
-                    updateStatus(`Error closing session: ${error.message}`);
-                }
-            }
-
-            // Event Listeners
-            voiceInputBtn.addEventListener("click", toggleVoiceRecognition);
-            closeSessionBtn.addEventListener("click", closeSession);
-
-            window.addEventListener("beforeunload", async () => {
-                if (sessionInfo) {
-                    await saveChatToDatabase();
-                    saveChatToTextFile();
-                }
-                if (isListening) {
-                    stopVoiceRecognition();
-                }
+              }
             });
 
-            // Initialize session
-            await createNewSession();
-            await startStreamingSession();
-            
-            // Start inactivity timer
-            resetInactivityTimer();
+          const sessionData = {
+            session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
+            avatar_id: avatarName || "not-specified",
+            student_id: studentId,
+            start_time: new Date(sessionStartTime).toISOString(),
+            end_time: new Date().toISOString(),
+            transcript: cleanTranscript.trim(),
+            messages: detailedMessages,
+          };
+
+          return { transcript: cleanTranscript.trim(), sessionData };
+        }
+
+        // Save chat to Supabase
+        async function saveChatToDatabase() {
+          if (isSaving || chatHistory.length === 0) return;
+          isSaving = true;
+
+          const { transcript, sessionData } = formatChatForStorage();
+
+          try {
+            const { data, error } = await supabaseClient
+              .from("conversation_transcripts")
+              .insert([
+                {
+                  session_id: sessionData.session_id,
+                  avatar_id: sessionData.avatar_id,
+                  student_id: sessionData.student_id,
+                  start_time: sessionData.start_time,
+                  end_time: sessionData.end_time,
+                  full_transcript: transcript,
+                  messages: sessionData.messages,
+                },
+              ]);
+
+            if (error) throw error;
+            return true;
+          } catch (error) {
+            console.error("Supabase error:", error);
+            return false;
+          } finally {
+            isSaving = false;
+          }
+        }
+
+        // Save chat to text file
+        function saveChatToTextFile() {
+          if (chatHistory.length === 0) {
+            console.log("No chat history to save");
+            return;
+          }
+
+          let fullTranscript =
+            "Chat Session Transcript\n=======================\n\n";
+
+          if (sessionInfo) {
+            fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
+            fullTranscript += `Student ID: ${studentId || "Not provided"}\n`;
+            fullTranscript += `Avatar: ${avatarName || "Not specified"}\n`;
+            fullTranscript += `Started: ${new Date(
+              sessionStartTime
+            ).toLocaleString()}\n`;
+            fullTranscript += `Ended: ${new Date().toLocaleString()}\n\n`;
+          }
+
+          chatHistory.sort((a, b) => a.timestamp - b.timestamp);
+          chatHistory.forEach((item) => {
+            if (item.type !== "avatar-partial") {
+              fullTranscript += item.message + "\n";
+            }
+          });
+
+          try {
+            const blob = new Blob([fullTranscript], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `chat_session_${
+              sessionInfo ? sessionInfo.session_id : ""
+            }_${new Date().toISOString().replace(/[:.]/g, "-")}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (error) {
+            console.error("Error saving text file:", error);
+          }
+        }
+
+        // Close session
+        async function closeSession() {
+          if (!sessionInfo) {
+            return;
+          }
+
+          if (currentAvatarResponse.isSpeaking) {
+            finalizeAvatarResponse();
+          }
+
+          if (avatarResponseTimer) {
+            clearTimeout(avatarResponseTimer);
+          }
+
+          if (isListening) {
+            stopVoiceRecognition();
+          }
+
+          try {
+            const response = await fetch(
+              `${API_CONFIG.serverUrl}/v1/streaming.stop`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${sessionToken}`,
+                },
+                body: JSON.stringify({
+                  session_id: sessionInfo.session_id,
+                }),
+              }
+            );
+
+            if (webSocket) {
+              webSocket.close();
+            }
+            if (room) {
+              room.disconnect();
+            }
+
+            mediaElement.srcObject = null;
+
+            await saveChatToDatabase();
+            saveChatToTextFile();
+
+            sessionInfo = null;
+            room = null;
+            mediaStream = null;
+            sessionToken = null;
+
+            setTimeout(() => {
+              window.location.href = "student_id.html";
+            }, 2000);
+          } catch (error) {
+            console.error("Error closing session:", error);
+          }
+        }
+
+        // Event Listeners
+        voiceInputBtn.addEventListener("click", toggleVoiceRecognition);
+        closeSessionBtn.addEventListener("click", closeSession);
+
+        window.addEventListener("beforeunload", async () => {
+          if (sessionInfo) {
+            await saveChatToDatabase();
+          }
+          if (isListening) {
+            stopVoiceRecognition();
+          }
         });
+
+        // Initialize session
+        try {
+          updateConnectionStatus("Connecting");
+          await createNewSession();
+          await startStreamingSession();
+          resetInactivityTimer();
+        } catch (error) {
+          console.error("Initialization error:", error);
+          updateConnectionStatus("Disconnected");
+        }
+      });
     </script>
-</body>
+  </body>
 </html>

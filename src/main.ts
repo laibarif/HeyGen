@@ -1,7 +1,6 @@
 import StreamingAvatar, {
   AvatarQuality,
-  StreamingEvents,
-  TaskType
+  StreamingEvents
 } from "@heygen/streaming-avatar";
 
 // DOM elements
