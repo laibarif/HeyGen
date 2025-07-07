@@ -370,7 +370,7 @@
         // Voice recognition variables
         let recognition = null;
         let isListening = false;
-        let currentUtteranceStartTime = null;
+        let accumulatedTranscript = "";
 
         // Message tracking variables
         let currentUserMessage = {
@@ -533,6 +533,7 @@
             isListening = true;
             voiceInputBtn.classList.add("recording");
             voiceWaves.classList.remove("hidden");
+            accumulatedTranscript = "";
             currentUserMessage = {
               text: "",
               startTime: new Date(),
@@ -556,6 +557,12 @@
               if (currentUserMessage.isSpeaking) {
                 currentUserMessage.endTime = new Date();
                 currentUserMessage.isSpeaking = false;
+                
+                // Only send the accumulated transcript if there's content
+                if (accumulatedTranscript.trim()) {
+                  displayUserMessage(accumulatedTranscript);
+                  sendText(accumulatedTranscript, "talk");
+                }
               }
             }
           };
@@ -567,27 +574,19 @@
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript;
               if (event.results[i].isFinal) {
-                finalTranscript += transcript;
+                finalTranscript += transcript + ' ';
               } else {
                 interimTranscript += transcript;
               }
             }
 
-            // Update current message with interim results
-            currentUserMessage.text = finalTranscript || interimTranscript;
-
-            // Only send and display when we have final results
+            // Accumulate all final transcripts
             if (finalTranscript) {
-              displayUserMessage(finalTranscript);
-              sendText(finalTranscript, "talk");
-              // Reset the current message for the next utterance
-              currentUserMessage = {
-                text: "",
-                startTime: new Date(),
-                endTime: null,
-                isSpeaking: true,
-              };
+              accumulatedTranscript += finalTranscript;
             }
+
+            // Update current message with the accumulated content
+            currentUserMessage.text = accumulatedTranscript || interimTranscript;
           };
         }
 
