@@ -325,7 +325,6 @@
       const WS_TIMEOUT = 30000; // 30 seconds for WebSocket
       const ROOM_TIMEOUT = 30000; // 30 seconds for Room
       const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-      const SILENCE_TIMEOUT = 5000; // 5 seconds
 
       const { createClient } = supabase;
       const supabaseClient = createClient(
@@ -371,7 +370,7 @@
         // Voice recognition variables
         let recognition = null;
         let isListening = false;
-        let silenceTimer = null;
+        let currentUtteranceStartTime = null;
 
         // Message tracking variables
         let currentUserMessage = {
@@ -534,44 +533,60 @@
             isListening = true;
             voiceInputBtn.classList.add("recording");
             voiceWaves.classList.remove("hidden");
-
-            // Set timeout for silence
-            silenceTimer = setTimeout(() => {
-              if (isListening) {
-                stopVoiceRecognition();
-              }
-            }, SILENCE_TIMEOUT);
+            currentUserMessage = {
+              text: "",
+              startTime: new Date(),
+              endTime: null,
+              isSpeaking: true,
+            };
           };
 
           recognition.onerror = (event) => {
-            clearTimeout(silenceTimer);
-            stopVoiceRecognition();
+            console.error("Speech recognition error", event.error);
+            // Don't stop on error, just log it
           };
 
           recognition.onend = () => {
-            clearTimeout(silenceTimer);
             if (isListening) {
+              // Automatically restart recognition if still listening
               recognition.start();
             } else {
-              stopVoiceRecognition();
+              voiceInputBtn.classList.remove("recording");
+              voiceWaves.classList.add("hidden");
+              if (currentUserMessage.isSpeaking) {
+                currentUserMessage.endTime = new Date();
+                currentUserMessage.isSpeaking = false;
+              }
             }
           };
 
           recognition.onresult = (event) => {
-            clearTimeout(silenceTimer);
-            let finalTranscript = "";
+            let interimTranscript = '';
+            let finalTranscript = '';
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
+              const transcript = event.results[i][0].transcript;
               if (event.results[i].isFinal) {
-                finalTranscript += event.results[i][0].transcript;
+                finalTranscript += transcript;
+              } else {
+                interimTranscript += transcript;
               }
             }
 
+            // Update current message with interim results
+            currentUserMessage.text = finalTranscript || interimTranscript;
+
+            // Only send and display when we have final results
             if (finalTranscript) {
-              currentUserMessage.text = finalTranscript;
               displayUserMessage(finalTranscript);
               sendText(finalTranscript, "talk");
-              stopVoiceRecognition();
+              // Reset the current message for the next utterance
+              currentUserMessage = {
+                text: "",
+                startTime: new Date(),
+                endTime: null,
+                isSpeaking: true,
+              };
             }
           };
         }
@@ -593,7 +608,11 @@
             try {
               recognition.start();
             } catch (error) {
-              stopVoiceRecognition();
+              console.error("Error starting recognition:", error);
+              // Try to restart after a short delay
+              setTimeout(() => {
+                recognition.start();
+              }, 500);
             }
           }
         }
@@ -602,14 +621,7 @@
         function stopVoiceRecognition() {
           if (recognition) {
             isListening = false;
-            recognition.stop();
-            voiceInputBtn.classList.remove("recording");
-            voiceWaves.classList.add("hidden");
-
-            if (currentUserMessage.isSpeaking) {
-              currentUserMessage.endTime = new Date();
-              currentUserMessage.isSpeaking = false;
-            }
+            recognition.stop(); // This will trigger onend which will clean up
           }
         }
 
@@ -1047,7 +1059,7 @@
             mediaElement.srcObject = null;
 
             await saveChatToDatabase();
-            saveChatToTextFile();
+            // saveChatToTextFile();
             
             sessionStorage.removeItem("studentId");
             sessionStorage.removeItem("redirectAvatar");
