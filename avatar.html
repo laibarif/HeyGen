@@ -6,7 +6,10 @@
     <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <style>
       .recording {
         position: relative;
@@ -182,7 +185,7 @@
         background-color: #f59e0b;
         color: white;
       }
-      
+
       @media (min-width: 640px) {
         .mic-btn {
           width: 60px;
@@ -217,8 +220,12 @@
     </style>
   </head>
 
-  <body class="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 p-4 sm:p-5 font-sans min-h-screen flex items-center justify-center">
-    <div class="max-w-4xl w-full mx-auto bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+  <body
+    class="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 p-4 sm:p-5 font-sans min-h-screen flex items-center justify-center"
+  >
+    <div
+      class="max-w-4xl w-full mx-auto bg-white p-4 sm:p-6 rounded-xl shadow-lg"
+    >
       <h1 class="header-text">Interactive Avatar Session</h1>
 
       <!-- Video Container -->
@@ -293,20 +300,24 @@
       const AVATARS = {
         1: {
           name: "Marianne_Chair_Sitting_public",
-          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33" // Directive style
+          displayName: "Avatar 1. FWC",
+          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33", // Directive style
         },
         2: {
           name: "Silas_CustomerSupport_public",
-          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33" // Directive style
+          displayName: "Avatar 2. MWC",
+          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33", // Directive style
         },
         3: {
           name: "June_HR_public",
-          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33" // Directive style
+          displayName: "Avatar 3. FAC",
+          knowledgeBaseId: "cd1737bdbc3845529ebd3a062b65ee33", // Directive style
         },
         4: {
           name: "June_HR_public",
-          knowledgeBaseId: "889d3ecb0e704d5681a4bf9618e6c039" // Facilitative style
-        }
+          displayName: "Avatar 4. FAF",
+          knowledgeBaseId: "889d3ecb0e704d5681a4bf9618e6c039", // Facilitative style
+        },
       };
 
       // Supabase Configuration
@@ -338,7 +349,7 @@
           urlParams.get("avatar") ||
           sessionStorage.getItem("redirectAvatar") ||
           "1";
-        
+
         // Get avatar details based on the key
         const avatarDetails = AVATARS[avatarKey] || AVATARS["1"];
         const avatarName = avatarDetails.name;
@@ -557,7 +568,7 @@
               if (currentUserMessage.isSpeaking) {
                 currentUserMessage.endTime = new Date();
                 currentUserMessage.isSpeaking = false;
-                
+
                 // Only send the accumulated transcript if there's content
                 if (accumulatedTranscript.trim()) {
                   displayUserMessage(accumulatedTranscript);
@@ -568,13 +579,13 @@
           };
 
           recognition.onresult = (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
+            let interimTranscript = "";
+            let finalTranscript = "";
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript;
               if (event.results[i].isFinal) {
-                finalTranscript += transcript + ' ';
+                finalTranscript += transcript + " ";
               } else {
                 interimTranscript += transcript;
               }
@@ -586,7 +597,8 @@
             }
 
             // Update current message with the accumulated content
-            currentUserMessage.text = accumulatedTranscript || interimTranscript;
+            currentUserMessage.text =
+              accumulatedTranscript || interimTranscript;
           };
         }
 
@@ -742,7 +754,7 @@
                 avatar_name: avatarName,
                 version: "v2",
                 video_encoding: "H264",
-                knowledge_base_id: knowledgeBaseId // Add knowledge base ID to the request
+                knowledge_base_id: knowledgeBaseId, // Add knowledge base ID to the request
               }),
             }
           );
@@ -925,7 +937,7 @@
 
           const sessionData = {
             session_id: sessionInfo ? sessionInfo.session_id : "no-session-id",
-            avatar_id: avatarName || "not-specified",
+            avatar_id: avatarDetails.displayName || "not-specified",
             knowledge_base_id: knowledgeBaseId || "not-specified",
             student_id: studentId,
             start_time: new Date(sessionStartTime).toISOString(),
@@ -984,7 +996,9 @@
             fullTranscript += `Session ID: ${sessionInfo.session_id}\n`;
             fullTranscript += `Student ID: ${studentId || "Not provided"}\n`;
             fullTranscript += `Avatar: ${avatarName || "Not specified"}\n`;
-            fullTranscript += `Knowledge Base: ${knowledgeBaseId || "Not specified"}\n`;
+            fullTranscript += `Knowledge Base: ${
+              knowledgeBaseId || "Not specified"
+            }\n`;
             fullTranscript += `Started: ${new Date(
               sessionStartTime
             ).toLocaleString()}\n`;
@@ -1059,7 +1073,7 @@
 
             await saveChatToDatabase();
             // saveChatToTextFile();
-            
+
             sessionStorage.removeItem("studentId");
             sessionStorage.removeItem("redirectAvatar");
 
